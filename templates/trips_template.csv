@@ -1,0 +1,2 @@
+Trip_ID,Date,Time,Odo_Start,Odo_End,Distance_km,Duration_min,Avg_Consumption,SoC_Start,SoC_End,Energy_kWh,Cost_Net_THB,Cost_Grid_THB,Note
+TRIP-SAMPLE-001,2026-09-09,08:30:00,12450,12505,55.0,48,14.5,85%,73%,7.98,39.10,43.44,ขับไปทำงานในเมือง

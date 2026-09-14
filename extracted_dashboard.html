@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;family=JetBrains&#43;Mono:wght@400;500;700&amp;display=swap">
+<style>
+:root{--bg3:#F4F7F5;--card:#FFFFFF;--ink3:#0D1512;--mut3:#5F726B;--line3:#E1E9E5;
+      --grn:#007A5E;--grn2:#0FA37C;--grnsoft:#E8F3EF;--ylw:#F4C542;--slate:#3B4A6B;--red:#C0483C}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg3);color:var(--ink3);font-family:"Anuphan","Segoe UI",system-ui,sans-serif;
+     font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+#app{container-type:inline-size}
+
+ 
+.head{background:var(--card);border-bottom:1px solid var(--line3);padding:16px 18px 0;position:sticky;top:0;z-index:5}
+.headtop{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.headtop h2{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}
+.headtop p{margin:1px 0 0;font-size:12.5px;color:var(--mut3);font-family:"JetBrains Mono",monospace}
+.picker{display:flex;align-items:center;gap:8px}
+.picker label{font-size:12.5px;color:var(--mut3)}
+input[type="date"]{font:inherit;font-size:13px;font-family:"JetBrains Mono",monospace;color:var(--ink3);
+  background:var(--bg3);border:1px solid var(--line3);border-radius:10px;padding:7px 10px}
+input[type="date"]:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+
+.modes{display:flex;gap:4px;background:var(--bg3);border-radius:12px;padding:4px;margin-top:14px;
+  border:1px solid var(--line3);width:fit-content;max-width:100%;overflow-x:auto}
+.modes button{font:inherit;font-size:13.5px;border:0;background:transparent;color:var(--mut3);
+  padding:7px 18px;border-radius:9px;cursor:pointer;white-space:nowrap}
+.modes button:hover{color:var(--ink3)}
+.modes button[aria-pressed="true"]{background:var(--ink3);color:#fff;font-weight:500}
+.modes button:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+
+.daybar{display:flex;align-items:center;gap:8px;padding:12px 0}
+.nav{flex:none;width:34px;height:34px;border-radius:11px;border:1px solid var(--line3);background:var(--card);
+  color:var(--ink3);font-size:15px;cursor:pointer;display:grid;place-items:center;line-height:1}
+.nav:hover:not(:disabled){background:var(--grnsoft);border-color:var(--grn);color:var(--grn)}
+.nav:disabled{opacity:.35;cursor:default}
+.nav:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+.days{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin;flex:1}
+.day{flex:none;border:1px solid var(--line3);background:var(--card);border-radius:13px;padding:8px 14px;
+  cursor:pointer;font:inherit;text-align:center;color:var(--mut3);line-height:1.35;min-width:82px}
+.day .dw{font-size:11px;letter-spacing:.04em}
+.day .dd{font-size:15px;font-weight:600;color:var(--ink3);font-family:"JetBrains Mono",monospace}
+.day .dv{font-size:11px;font-family:"JetBrains Mono",monospace}
+.day:hover{border-color:var(--grn);color:var(--grn)}
+.day[aria-pressed="true"]{background:var(--ink3);border-color:var(--ink3);color:rgba(255,255,255,.72)}
+.day[aria-pressed="true"] .dd{color:#fff}
+.day:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+
+ 
+.body{padding:18px}
+.daytitle{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;margin-bottom:14px}
+.daytitle h3{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.daytitle .sub{font-size:12.5px;color:var(--mut3);font-family:"JetBrains Mono",monospace}
+.delta{font-size:12.5px;font-family:"JetBrains Mono",monospace;border-radius:999px;padding:3px 11px;
+  background:var(--grnsoft);color:var(--grn);white-space:nowrap}
+.delta.up{background:#FBEAE7;color:var(--red)}
+.delta.flat{background:var(--line3);color:var(--mut3)}
+
+.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.c{background:var(--card);border:1px solid var(--line3);border-radius:18px;padding:18px;
+  display:flex;flex-direction:column;gap:10px}
+.c .cap{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut3);font-weight:500}
+.hero{grid-column:span 2;grid-row:span 2;background:linear-gradient(158deg,#00614A,#009371);
+  color:#fff;border-color:transparent;justify-content:space-between}
+.hero .cap{color:rgba(255,255,255,.74)}
+.hero .note{font-size:12.5px;color:rgba(255,255,255,.8);line-height:1.6;
+  border-top:1px solid rgba(255,255,255,.2);padding-top:10px}
+.hsplit{display:flex;flex-direction:column;gap:14px;flex:1;justify-content:center}
+.hitem{display:flex;flex-direction:column;gap:1px}
+.hitem+.hitem{border-top:1px solid rgba(255,255,255,.18);padding-top:13px}
+.hl{font-size:13px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:6px}
+.hv{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;
+  font-size:clamp(30px,7cqw,42px);font-weight:500;letter-spacing:-.035em;line-height:1.15}
+.hv small{font-size:.44em;font-weight:400;opacity:.75;margin-right:5px}
+.hs{font-size:12.5px;color:rgba(255,255,255,.74);font-family:"JetBrains Mono",monospace}
+.stat .v{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:30px;
+  font-weight:500;letter-spacing:-.03em;line-height:1.15}
+.stat .v i{font-style:normal;font-size:14px;color:var(--mut3);margin-left:3px}
+.foot{font-size:12.5px;color:var(--mut3);line-height:1.5}
+.batt{grid-column:span 2}
+.battrow{display:flex;align-items:center;gap:12px}
+.cell3{flex:1;height:44px;border-radius:10px;background:var(--line3);position:relative;overflow:hidden}
+.cell3 .lv{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--grn),var(--grn2));
+  border-radius:10px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.cell3 .txt{position:absolute;inset:0;display:flex;align-items:center;padding:0 14px;
+  font-family:"JetBrains Mono",monospace;font-size:15px;color:#fff;font-weight:500}
+.arrow{color:var(--mut3);font-size:13px;white-space:nowrap;font-family:"JetBrains Mono",monospace}
+
+.strip{grid-column:span 4}
+.bars{display:flex;gap:3px;align-items:flex-end;height:96px;margin-top:2px}
+.bcol{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%;
+  background:transparent;border:0;padding:0;cursor:pointer;font:inherit;border-radius:4px}
+.bcol:disabled{cursor:default}
+.bcol span{display:block;width:100%;border-radius:4px 4px 0 0;transition:height .35s ease}
+.bcol .btrip{background:var(--slate)}
+.bcol .bchg{background:var(--grn)}
+.bcol .bnone{background:var(--line3);height:3px;border-radius:2px}
+.bcol:hover:not(:disabled) .btrip{background:#55679180}
+.bcol:hover:not(:disabled) .bchg{background:var(--grn2)}
+.bcol:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+.blabels{display:flex;gap:3px;margin-top:6px}
+.blabels span{flex:1;min-width:0;text-align:center;font-size:10px;color:var(--mut3);
+  font-family:"JetBrains Mono",monospace;overflow:hidden;white-space:nowrap}
+
+.list{grid-column:span 4;padding:0;overflow:hidden}
+.list header,.hist header{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:15px 18px;border-bottom:1px solid var(--line3)}
+.list header b,.hist header b{font-size:14.5px;font-weight:600}
+.list header span,.hist header span{font-size:12.5px;color:var(--mut3);font-family:"JetBrains Mono",monospace}
+.li{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;
+  padding:12px 18px;border-bottom:1px solid var(--line3)}
+.li:last-child{border-bottom:0}
+.ic{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:15px;
+  background:#ECEFF6;color:var(--slate)}
+.ic.chg{background:var(--grnsoft);color:var(--grn)}
+.li .t1{font-size:14px;font-weight:500}
+.li .t2{font-size:12px;color:var(--mut3);font-family:"JetBrains Mono",monospace}
+.li .kw{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut3);text-align:right}
+.li .th{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:14.5px;font-weight:500;text-align:right;min-width:68px}
+.more{padding:11px 18px;text-align:center;font-size:12.5px;color:var(--mut3);border-top:1px solid var(--line3)}
+.empty{grid-column:span 4;background:var(--card);border:1px dashed var(--line3);border-radius:18px;
+  padding:36px 20px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty .em{font-size:28px}
+.empty b{font-size:16px;font-weight:600}
+.empty p{margin:0;color:var(--mut3);font-size:13.5px;max-width:46ch}
+.empty button{font:inherit;font-size:13.5px;border:0;background:var(--ink3);color:#fff;
+  border-radius:11px;padding:9px 18px;cursor:pointer;margin-top:4px}
+.empty button:focus-visible{outline:2px solid var(--grn);outline-offset:2px}
+
+.hist{grid-column:span 4;padding:0;overflow:hidden}
+.hrow{display:grid;grid-template-columns:132px 1fr 128px 84px;gap:14px;align-items:center;width:100%;
+  padding:13px 18px;border:0;border-bottom:1px solid var(--line3);background:transparent;
+  font:inherit;text-align:left;cursor:pointer;color:var(--ink3)}
+.hrow:last-of-type{border-bottom:0}
+.hrow:hover{background:var(--grnsoft)}
+.hrow[aria-pressed="true"]{background:var(--grnsoft);box-shadow:inset 3px 0 0 var(--grn)}
+.hrow:focus-visible{outline:2px solid var(--grn);outline-offset:-2px}
+.hrow .d1{font-size:14px;font-weight:500}
+.hrow .d2{font-size:11.5px;color:var(--mut3);font-family:"JetBrains Mono",monospace}
+.hbar{display:flex;flex-direction:column;gap:4px}
+.hbar i{display:block;height:6px;border-radius:3px;background:var(--line3);min-width:3px;transition:width .4s ease}
+.hbar .a{background:var(--slate)}
+.hbar .b{background:var(--grn)}
+.hrow .m1{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut3);text-align:right}
+.hrow .m2{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:13.5px;font-weight:500;text-align:right;line-height:1.5}
+.hrow .m2 .mt{color:var(--slate)}
+.hrow .m2 .mc{color:var(--grn)}
+.hrow .m2 em{font-style:normal;opacity:.5;font-size:11px;margin-right:3px}
+.sumrow{display:flex;flex-wrap:wrap;gap:8px 22px;padding:13px 18px;background:var(--bg3);
+  border-top:1px solid var(--line3);font-size:13px;color:var(--mut3)}
+.sumrow b{color:var(--ink3);font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-weight:500}
+.legend3{display:flex;flex-wrap:wrap;gap:16px;padding:0 18px 14px;font-size:11.5px;color:var(--mut3)}
+.legend3 i{width:10px;height:10px;border-radius:3px;display:inline-block;vertical-align:-1px;margin-right:6px}
+
+.socc{grid-column:span 4}
+svg.sochart{width:100%;height:150px;display:block}
+
+.thin{grid-column:span 4;background:#FFF8E6;border:1px solid #F0DFAE;color:#7A5B12;border-radius:14px;
+  padding:12px 16px;font-size:13px;line-height:1.6}
+.thin b{font-weight:600}
+.srcbar{padding:12px 18px 20px;font-size:12px;color:var(--mut3);display:flex;flex-wrap:wrap;gap:6px 16px;
+  font-family:"JetBrains Mono",monospace}
+.srcbar a{color:var(--grn)}
+.fail{margin:24px;background:var(--card);border:1px solid #F0C9C4;border-radius:16px;padding:24px;color:var(--red)}
+.fail b{display:block;font-size:16px;margin-bottom:6px}
+.fail code{background:#FBEAE7;padding:2px 6px;border-radius:5px;font-size:12.5px;color:#8A2F26}
+
+@container (max-width:900px){
+  .bento{grid-template-columns:repeat(2,1fr)}
+  .list,.hist,.socc,.empty,.strip,.thin{grid-column:span 2}
+  .hrow{grid-template-columns:112px 1fr 112px 78px;gap:12px}
+}
+@container (max-width:620px){
+  .head{padding:14px 14px 0}
+  .body{padding:14px}
+  .bento{grid-template-columns:1fr}
+  .hero,.batt,.list,.hist,.socc,.empty,.strip,.thin{grid-column:span 1}
+  .hero{grid-row:auto}
+  .li{grid-template-columns:auto 1fr auto;gap:10px}
+  .li .kw{display:none}
+  .hrow{grid-template-columns:1fr auto;gap:6px 12px;padding:12px 14px}
+  .hrow .hbar{grid-column:1/-1;grid-row:2}
+  .hrow .m1{display:none}
+  .li,.list header,.hist header,.sumrow,.legend3,.srcbar{padding-left:14px;padding-right:14px}
+  .picker label{display:none}
+  .headtop h2{font-size:16.5px}
+  .bars{height:78px}
+  .modes button{padding:7px 13px;font-size:13px}
+}
+@media (prefers-reduced-motion: reduce){*{transition-duration:.01ms !important;animation-duration:.01ms !important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+ 
+const PAYLOAD = {"ok":true,"data":{"rows":[{"iso":"2026-08-30","time":"22:00","kind":"charge","span":"22:00 – 02:42","km":0,"min":282,"cons":0,"s0":85,"s1":100,"kwh":10.32,"net":50.57,"grid":56.19,"note":"Overnight Charging (22:00 - 02:42 Aug 31)"},{"iso":"2026-08-31","time":"07:45","kind":"trip","span":"","km":31.6,"min":42,"cons":14,"s0":99,"s1":93,"kwh":4.13,"net":20.23,"grid":22.47,"note":"Morning trip 1"},{"iso":"2026-08-31","time":"08:34","kind":"trip","span":"","km":16.2,"min":17,"cons":15.1,"s0":93,"s1":89,"kwh":2.75,"net":13.49,"grid":14.99,"note":"Morning trip 2"},{"iso":"2026-08-31","time":"09:37","kind":"trip","span":"","km":31.4,"min":49,"cons":14.7,"s0":89,"s1":85,"kwh":2.75,"net":13.49,"grid":14.99,"note":"Late morning trip"},{"iso":"2026-08-31","time":"19:39","kind":"trip","span":"","km":5.8,"min":12,"cons":13,"s0":85,"s1":81,"kwh":2.75,"net":13.49,"grid":14.99,"note":"Early evening trip"},{"iso":"2026-08-31","time":"20:16","kind":"trip","span":"","km":9.6,"min":14,"cons":12.1,"s0":81,"s1":79,"kwh":1.38,"net":6.74,"grid":7.49,"note":"Evening trip"},{"iso":"2026-09-01","time":"07:30","kind":"trip","span":"","km":15.4,"min":29,"cons":14.9,"s0":79,"s1":74,"kwh":3.44,"net":16.86,"grid":18.73,"note":"Morning trip 1"},{"iso":"2026-09-01","time":"08:49","kind":"trip","span":"","km":3.8,"min":22,"cons":18,"s0":74,"s1":72,"kwh":1.38,"net":6.74,"grid":7.49,"note":"Morning trip 2"},{"iso":"2026-09-01","time":"17:21","kind":"trip","span":"","km":0.9,"min":8,"cons":20.1,"s0":72,"s1":72,"kwh":0,"net":0,"grid":0,"note":"Evening trip 1"},{"iso":"2026-09-01","time":"18:07","kind":"trip","span":"","km":15.6,"min":19,"cons":13.9,"s0":72,"s1":69,"kwh":2.06,"net":10.11,"grid":11.24,"note":"Evening trip 2"},{"iso":"2026-09-02","time":"07:24","kind":"trip","span":"","km":16.4,"min":18,"cons":15.5,"s0":69,"s1":63,"kwh":4.13,"net":20.23,"grid":22.47,"note":"Morning trip"},{"iso":"2026-09-02","time":"17:42","kind":"trip","span":"","km":15.5,"min":22,"cons":14.3,"s0":63,"s1":59,"kwh":2.75,"net":13.48,"grid":14.98,"note":"Evening trip"},{"iso":"2026-09-03","time":"05:21","kind":"charge","span":"","km":0,"min":438,"cons":0,"s0":59,"s1":80,"kwh":14.45,"net":70.8,"grid":78.66,"note":"Finished Charging (59% to 80% in 7h 18m)"},{"iso":"2026-09-03","time":"07:21","kind":"trip","span":"","km":16.8,"min":20,"cons":15.3,"s0":80,"s1":76,"kwh":2.57,"net":12.59,"grid":13.99,"note":"Morning trip"},{"iso":"2026-09-03","time":"17:35","kind":"trip","span":"","km":23.7,"min":44,"cons":12.7,"s0":76,"s1":72,"kwh":3.01,"net":27.5,"grid":27.5,"note":"Evening trip (+12km added)"},{"iso":"2026-09-04","time":"12:00","kind":"trip","span":"","km":24.2,"min":0,"cons":14,"s0":72,"s1":67,"kwh":3.39,"net":16.6,"grid":18.45,"note":"Morning work + Lunch trip"},{"iso":"2026-09-04","time":"12:04","kind":"charge","span":"","km":0,"min":12,"cons":0,"s0":67,"s1":95,"kwh":19.11,"net":150.96,"grid":150.96,"note":"DC Charging @ PEA Ongkharak (7.90 THB/kWh)"},{"iso":"2026-09-04","time":"13:36","kind":"trip","span":"","km":7.8,"min":10,"cons":16.1,"s0":85,"s1":85,"kwh":1.29,"net":6.31,"grid":7.01,"note":"Afternoon trip"},{"iso":"2026-09-04","time":"17:58","kind":"trip","span":"","km":45.2,"min":63,"cons":12.4,"s0":85,"s1":77,"kwh":5.6,"net":27.46,"grid":30.52,"note":"Arrived home"},{"iso":"2026-09-05","time":"07:51","kind":"trip","span":"","km":20.1,"min":30,"cons":12.6,"s0":77,"s1":71,"kwh":2.53,"net":12.41,"grid":13.79,"note":"Morning trip"},{"iso":"2026-09-06","time":"08:49","kind":"trip","span":"","km":1.5,"min":6,"cons":12.7,"s0":71,"s1":70,"kwh":0.19,"net":0.93,"grid":1.04,"note":"Morning trip 1"},{"iso":"2026-09-06","time":"09:28","kind":"trip","span":"","km":13.2,"min":14,"cons":13.2,"s0":70,"s1":68,"kwh":1.74,"net":8.54,"grid":9.49,"note":"Morning trip 2"},{"iso":"2026-09-07","time":"07:22","kind":"trip","span":"","km":15.8,"min":17,"cons":17,"s0":68,"s1":60,"kwh":2.69,"net":13.16,"grid":14.62,"note":"Morning trip"},{"iso":"2026-09-07","time":"12:41","kind":"trip","span":"","km":0.3,"min":6,"cons":32.4,"s0":60,"s1":59,"kwh":0.1,"net":0.48,"grid":0.53,"note":"Midday trip"},{"iso":"2026-09-07","time":"19:24","kind":"trip","span":"","km":4.4,"min":11,"cons":16.2,"s0":59,"s1":58,"kwh":0.71,"net":3.49,"grid":3.88,"note":"Evening trip"},{"iso":"2026-09-07","time":"20:02","kind":"trip","span":"","km":11.1,"min":12,"cons":13,"s0":58,"s1":56,"kwh":1.44,"net":7.07,"grid":7.86,"note":"Arrived home"},{"iso":"2026-09-08","time":"07:29","kind":"trip","span":"","km":16.5,"min":22,"cons":14.9,"s0":56,"s1":51,"kwh":2.46,"net":12.05,"grid":13.39,"note":"Morning trip"},{"iso":"2026-09-08","time":"20:42","kind":"trip","span":"","km":15.3,"min":20,"cons":13.4,"s0":51,"s1":48,"kwh":2.05,"net":10.05,"grid":11.16,"note":"Arrived home"},{"iso":"2026-09-08","time":"21:00","kind":"trip","span":"","km":0.49,"min":0.75,"cons":17.89,"s0":20,"s1":88,"kwh":97.39,"net":2.4,"grid":0,"note":"การเดินทาง"},{"iso":"2026-09-09","time":"07:05","kind":"trip","span":"","km":16.7,"min":21,"cons":15.4,"s0":75,"s1":71,"kwh":2.57,"net":12.6,"grid":14,"note":"Morning trip"},{"iso":"2026-09-09","time":"19:09","kind":"trip","span":"","km":15.7,"min":23,"cons":12.1,"s0":71,"s1":68,"kwh":1.9,"net":9.31,"grid":10.34,"note":"Arrived home"},{"iso":"2026-09-10","time":"07:22","kind":"trip","span":"","km":16.6,"min":22,"cons":15.5,"s0":68,"s1":62,"kwh":2.57,"net":12.61,"grid":14.01,"note":"Morning trip"},{"iso":"2026-09-10","time":"17:22","kind":"trip","span":"","km":26.7,"min":35,"cons":14.6,"s0":62,"s1":56,"kwh":3.9,"net":19.1,"grid":21.22,"note":"Afternoon trip"},{"iso":"2026-09-10","time":"18:01","kind":"trip","span":"","km":13.6,"min":18,"cons":13.2,"s0":56,"s1":54,"kwh":1.8,"net":8.8,"grid":9.77,"note":"Arrived home"}],"meta":{"vehicle":"XPENG G6 STD","odoStart":917,"odoEnd":3018990617000642,"rate":6.206244302643575,"from":"2026-08-30","to":"2026-09-10","fetched":"10 Sep 2026 21:52","sheetUrl":"https://docs.google.com/spreadsheets/d/1wI1DQLZZXSKX1-R-3Dn6hV5hcdeTvU4teG_zEuvkd3g/edit"}}};
+
+const app = document.getElementById('app');
+
+if (!PAYLOAD.ok) {
+  app.innerHTML = '<div class="fail"><b>อ่านข้อมูลจากสเปรดชีตไม่สำเร็จ</b>' +
+    '<p>' + esc(PAYLOAD.error) + '</p>' +
+    '<p>ตรวจว่า <code>SHEET_ID</code> ใน Code.gs ถูกต้อง และบัญชีที่ deploy เว็บแอปมีสิทธิ์เปิดสเปรดชีตนั้น</p></div>';
+} else {
+  start(PAYLOAD.data);
+}
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+function start(DATA){
+const ROWS = DATA.rows, META = DATA.meta;
+const PICK_MIN = (parseInt(ROWS[0].iso.slice(0,4),10)-2)+'-01-01';
+const PICK_MAX = (parseInt(ROWS[ROWS.length-1].iso.slice(0,4),10)+2)+'-12-31';
+
+ 
+const pad=x=>String(x).padStart(2,'0');
+const TH_M =['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const TH_MF=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const TH_W =['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+const TH_WS=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+const dOf=iso=>new Date(iso+'T00:00:00');
+const toIso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const addDays=(iso,k)=>{const d=dOf(iso);d.setDate(d.getDate()+k);return toIso(d);};
+const mondayOf=iso=>{const d=dOf(iso);d.setDate(d.getDate()-((d.getDay()+6)%7));return toIso(d);};
+const fmtShort=iso=>{const d=dOf(iso);return d.getDate()+' '+TH_M[d.getMonth()];};
+const fmtLong=iso=>{const d=dOf(iso);return 'วัน'+TH_W[d.getDay()]+'ที่ '+d.getDate()+' '+TH_M[d.getMonth()]+' '+d.getFullYear();};
+const daysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
+
+ 
+const MODES=[{k:'day',t:'รายวัน'},{k:'week',t:'รายสัปดาห์'},{k:'month',t:'รายเดือน'},{k:'year',t:'รายปี'}];
+function range(anchor,mode){
+  const d=dOf(anchor), y=d.getFullYear(), m=d.getMonth();
+  if(mode==='day')   return {from:anchor,to:anchor};
+  if(mode==='week'){ const f=mondayOf(anchor); return {from:f,to:addDays(f,6)}; }
+  if(mode==='month') return {from:y+'-'+pad(m+1)+'-01', to:y+'-'+pad(m+1)+'-'+pad(daysInMonth(y,m))};
+  return {from:y+'-01-01', to:y+'-12-31'};
+}
+const keyOf=(a,m)=>range(a,m).from;
+function shiftAnchor(anchor,mode,k){
+  const d=dOf(anchor);
+  if(mode==='day')  return addDays(anchor,k);
+  if(mode==='week') return addDays(anchor,k*7);
+  if(mode==='month')return toIso(new Date(d.getFullYear(),d.getMonth()+k,1));
+  return toIso(new Date(d.getFullYear()+k,d.getMonth(),1));
+}
+function titleOf(anchor,mode){
+  const r=range(anchor,mode), d=dOf(anchor);
+  if(mode==='day')   return fmtLong(anchor);
+  if(mode==='week')  return 'สัปดาห์ '+fmtShort(r.from)+' – '+fmtShort(r.to)+' '+dOf(r.to).getFullYear();
+  if(mode==='month') return TH_MF[d.getMonth()]+' '+d.getFullYear();
+  return 'ปี '+d.getFullYear();
+}
+function chipOf(anchor,mode){
+  const r=range(anchor,mode), d=dOf(anchor);
+  if(mode==='day')   return {top:TH_WS[d.getDay()], mid:String(d.getDate())};
+  if(mode==='week')  return {top:'สัปดาห์', mid:dOf(r.from).getDate()+'–'+dOf(r.to).getDate()+' '+TH_M[dOf(r.to).getMonth()]};
+  if(mode==='month') return {top:String(d.getFullYear()), mid:TH_M[d.getMonth()]};
+  return {top:'ปี', mid:String(d.getFullYear())};
+}
+
+ 
+const sum=(a,f)=>a.reduce((s,x)=>s+f(x),0);
+const n=(v,d=1)=>v.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const hm=m=>m>=60?Math.floor(m/60)+' ชม. '+Math.round(m%60)+' น.':Math.round(m)+' นาที';
+const inRange=(from,to)=>ROWS.filter(r=>r.iso>=from&&r.iso<=to);
+function agg(rows){
+  const trips=rows.filter(r=>r.kind==='trip'), chgs=rows.filter(r=>r.kind==='charge');
+  const km=sum(trips,r=>r.km);
+  return {rows,trips:trips.length,charges:chgs.length,km,min:sum(trips,r=>r.min),
+    used:sum(trips,r=>r.kwh),added:sum(chgs,r=>r.kwh),
+    net:sum(rows,r=>r.net),grid:sum(rows,r=>r.grid),
+    netTrip:sum(trips,r=>r.net), gridTrip:sum(trips,r=>r.grid),
+    netChg :sum(chgs, r=>r.net), gridChg :sum(chgs, r=>r.grid),
+    cons:km?sum(trips,r=>r.cons*r.km)/km:0, perKm:km?sum(trips,r=>r.net)/km:0,
+    s0:rows.length?rows[0].s0:null, s1:rows.length?rows[rows.length-1].s1:null,
+    chgMin:sum(chgs,r=>r.min), days:new Set(rows.map(r=>r.iso)).size};
+}
+const aggOf=(a,m)=>{const r=range(a,m);return agg(inRange(r.from,r.to));};
+function bucketsOf(mode){
+  const s=new Set(); ROWS.forEach(r=>s.add(range(r.iso,mode).from));
+  return [...s].sort();
+}
+const LAST_ISO=ROWS[ROWS.length-1].iso;
+const TOTAL=agg(ROWS);
+
+let mode='day', anchor=LAST_ISO;
+
+ 
+function deltaChip(){
+  const cur=aggOf(anchor,mode), prev=aggOf(shiftAnchor(anchor,mode,-1),mode);
+  const unit={day:'วันก่อนหน้า',week:'สัปดาห์ก่อน',month:'เดือนก่อน',year:'ปีก่อน'}[mode];
+  if(!cur.trips) return '<span class="delta flat">ไม่มีการเดินทางในช่วงนี้</span>';
+  if(!prev.rows.length) return '<span class="delta flat">ไม่มีข้อมูล'+unit+'</span>';
+  if(prev.netTrip===0) return '<span class="delta flat">'+unit+'ไม่มีการเดินทาง</span>';
+  const p=(cur.netTrip-prev.netTrip)/prev.netTrip*100;
+  if(Math.abs(p)<0.5) return '<span class="delta flat">ค่าเดินทางเท่ากับ'+unit+'</span>';
+  return '<span class="delta'+(p>0?' up':'')+'">'+(p>0?'▲':'▼')+' '+n(Math.abs(p),0)+'% ค่าเดินทางเทียบ'+unit+'</span>';
+}
+function subBuckets(){
+  const r=range(anchor,mode), d=dOf(anchor), out=[];
+  if(mode==='year'){
+    const y=d.getFullYear();
+    for(let m=0;m<12;m++){const from=y+'-'+pad(m+1)+'-01', to=y+'-'+pad(m+1)+'-'+pad(daysInMonth(y,m));
+      out.push({label:TH_M[m].replace('.',''),from,to,jumpMode:'month',jump:from,a:agg(inRange(from,to))});}
+    return {items:out,cap:'ค่าไฟรายเดือนในปีนี้ · กดแท่งเพื่อดูรายเดือน'};
+  }
+  if(mode==='month'){
+    const y=d.getFullYear(), m=d.getMonth(), dim=daysInMonth(y,m);
+    for(let i=1;i<=dim;i++){const iso=y+'-'+pad(m+1)+'-'+pad(i);
+      out.push({label:(i===1||i%5===0)?String(i):'',from:iso,to:iso,jumpMode:'day',jump:iso,a:agg(inRange(iso,iso))});}
+    return {items:out,cap:'ค่าไฟรายวันในเดือนนี้ · กดแท่งเพื่อดูรายวัน'};
+  }
+  if(mode==='week'){
+    for(let i=0;i<7;i++){const iso=addDays(r.from,i);
+      out.push({label:TH_WS[dOf(iso).getDay()],from:iso,to:iso,jumpMode:'day',jump:iso,a:agg(inRange(iso,iso))});}
+    return {items:out,cap:'ค่าไฟรายวันในสัปดาห์นี้ · กดแท่งเพื่อดูรายวัน'};
+  }
+  return null;
+}
+function stripCard(){
+  const s=subBuckets(); if(!s) return '';
+  const max=Math.max(...s.items.map(x=>Math.max(x.a.netTrip,x.a.netChg)),0.0001);
+  return '<div class="c strip"><div class="cap">'+s.cap+'</div><div class="bars">'+
+   s.items.map(x=>{
+     const has=x.a.rows.length>0;
+     const hT=has&&x.a.netTrip?Math.max(x.a.netTrip/max*100,2):0;
+     const hC=has&&x.a.netChg ?Math.max(x.a.netChg /max*100,2):0;
+     const t=has?(x.label||fmtShort(x.from))+' · เดินทาง ฿'+n(x.a.netTrip,2)+' · ชาร์จ ฿'+n(x.a.netChg,2):'ไม่มีข้อมูล';
+     return '<button type="button" class="bcol" '+(has?'data-jump="'+x.jumpMode+':'+x.jump+'"':'disabled')+
+       ' title="'+t+'">'+
+       (hC?'<span class="bchg" style="height:'+hC.toFixed(1)+'%"></span>':'')+
+       (hT?'<span class="btrip" style="height:'+hT.toFixed(1)+'%"></span>':'')+
+       (has?'':'<span class="bnone"></span>')+'</button>';
+   }).join('')+'</div><div class="blabels">'+s.items.map(x=>'<span>'+(x.label||'')+'</span>').join('')+'</div>'+
+   '<div class="legend3" style="padding:8px 0 0"><span><i style="background:#3B4A6B"></i>ค่าเดินทาง</span>'+
+   '<span><i style="background:#007A5E"></i>ค่าชาร์จ</span><span><i style="background:#E1E9E5"></i>ไม่มีข้อมูล</span></div></div>';
+}
+function socChart(){
+  const r=range(anchor,mode);
+  const pts=[{l:fmtShort(ROWS[0].iso)+' '+ROWS[0].time,v:ROWS[0].s0,iso:ROWS[0].iso}]
+    .concat(ROWS.map(x=>({l:fmtShort(x.iso)+' '+x.time,v:x.s1,iso:x.iso})));
+  const W=720,H=150,PT=12,PB=20,PL=28,PR=8,lo=Math.max(0,Math.min(...pts.map(p=>p.v))-10),hi=105;
+  const X=i=>PL+i*(W-PL-PR)/Math.max(pts.length-1,1), Y=v=>PT+(hi-v)*(H-PT-PB)/(hi-lo);
+  const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
+  const area=PL+','+Y(lo).toFixed(1)+' '+line+' '+X(pts.length-1).toFixed(1)+','+Y(lo).toFixed(1);
+  const ticks=[Math.ceil(lo/20)*20,60,80,100].filter((v,i,a)=>v>=lo&&v<=100&&a.indexOf(v)===i);
+  const grid=ticks.map(v=>'<line x1="'+PL+'" x2="'+(W-PR)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" stroke="#E1E9E5"/>'+
+    '<text x="'+(PL-6)+'" y="'+(Y(v)+3.5).toFixed(1)+'" fill="#5F726B" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="end">'+v+'</text>').join('');
+  const dots=pts.map((p,i)=>{const on=p.iso>=r.from&&p.iso<=r.to;
+    return '<circle cx="'+X(i).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="'+(on?4:2)+'" fill="'+(on?'#F4C542':'#007A5E')+'"><title>'+esc(p.l)+' — '+p.v+'%</title></circle>';}).join('');
+  return '<div class="c socc"><div class="cap">ระดับแบตเตอรี่ตลอดข้อมูล · จุดสีเหลืองคือช่วงที่เลือก</div>'+
+    '<svg class="sochart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="กราฟระดับแบตเตอรี่ตลอดช่วงข้อมูล">'+
+    '<defs><linearGradient id="gs" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0FA37C" stop-opacity=".26"/><stop offset="100%" stop-color="#0FA37C" stop-opacity="0"/></linearGradient></defs>'+
+    grid+'<polygon points="'+area+'" fill="url(#gs)"/>'+
+    '<polyline points="'+line+'" fill="none" stroke="#007A5E" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>'+
+    dots+'</svg></div>';
+}
+function history(){
+  const list=bucketsOf(mode), cur=keyOf(anchor,mode);
+  const maxg=Math.max(...list.map(a=>{const x=aggOf(a,mode);return Math.max(x.netTrip,x.netChg);}),0.0001);
+  const unit={day:'วัน',week:'สัปดาห์',month:'เดือน',year:'ปี'}[mode];
+  return '<div class="c hist"><header><b>ย้อนหลังราย'+unit+'</b><span>'+list.length+' '+unit+'ที่มีข้อมูล</span></header>'+
+  list.map(a=>{
+    const d=aggOf(a,mode), on=a===cur;
+    const sub = mode==='day'
+      ? TH_WS[dOf(a).getDay()]+' · '+(d.trips?d.trips+' เที่ยว':'ชาร์จอย่างเดียว')
+      : d.days+' วันที่มีข้อมูล · '+d.trips+' เที่ยว · ชาร์จ '+d.charges+' ครั้ง';
+    return '<button type="button" class="hrow" data-go="'+a+'" aria-pressed="'+on+'">'+
+      '<span><span class="d1">'+(mode==='day'?fmtShort(a):titleOf(a,mode).replace('สัปดาห์ ',''))+'</span><br><span class="d2">'+sub+'</span></span>'+
+      '<span class="hbar"><i class="a" style="width:'+(d.netTrip/maxg*100).toFixed(1)+'%"></i><i class="b" style="width:'+(d.netChg/maxg*100).toFixed(1)+'%"></i></span>'+
+      '<span class="m1">'+(d.km?n(d.km)+' กม.':'—')+' · ใช้ '+n(d.used,2)+' kWh</span>'+
+      '<span class="m2"><span class="mt"><em>🚗</em>฿'+n(d.netTrip,2)+'</span><br><span class="mc"><em>⚡</em>฿'+n(d.netChg,2)+'</span></span></button>';
+  }).join('')+
+  '<div class="legend3"><span><i style="background:#3B4A6B"></i>🚗 ค่าเดินทาง (มูลค่าพลังงานที่ใช้)</span><span><i style="background:#007A5E"></i>⚡ ค่าชาร์จ (เงินที่จ่ายจริง)</span></div>'+
+  '<div class="sumrow"><span>ค่าชาร์จรวม <b>฿'+n(TOTAL.netChg,2)+'</b></span>'+
+  '<span>หน้ามิเตอร์ <b>฿'+n(TOTAL.gridChg,2)+'</b></span>'+
+  '<span>ค่าเดินทางรวม <b>฿'+n(TOTAL.netTrip,2)+'</b></span>'+
+  '<span>ระยะทาง <b>'+n(TOTAL.km)+' กม.</b></span></div></div>';
+}
+function itemList(d){
+  if(!d.rows.length) return '';
+  const show=d.rows.slice(0,10), rest=d.rows.length-show.length;
+  return '<div class="c list"><header><b>รายการในช่วงนี้</b><span>'+d.rows.length+' รายการ</span></header>'+
+  show.map(r=>{
+    const c=r.kind==='charge';
+    return '<div class="li"><span class="ic'+(c?' chg':'')+'">'+(c?'⚡':'🚗')+'</span>'+
+      '<span><span class="t1">'+esc(r.note)+'</span><br><span class="t2">'+
+        fmtShort(r.iso)+' '+esc(c?(r.span||r.time):r.time+' · '+n(r.km)+' กม. · '+n(r.cons)+' kWh/100')+' · '+r.s0+'→'+r.s1+'%</span></span>'+
+      '<span class="kw">'+(c?'+':'')+n(r.kwh,2)+' kWh</span>'+
+      '<span class="th" style="color:'+(c?'var(--grn)':'var(--slate)')+'">฿'+n(r.net,2)+'</span></div>';
+  }).join('')+(rest>0?'<div class="more">และอีก '+rest+' รายการในช่วงนี้</div>':'')+'</div>';
+}
+
+ 
+function render(){
+  const r=range(anchor,mode), d=aggOf(anchor,mode);
+  const buckets=bucketsOf(mode), cur=keyOf(anchor,mode);
+  const prevA=shiftAnchor(anchor,mode,-1), nextA=shiftAnchor(anchor,mode,1);
+  const unitTxt={day:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',year:'ปีนี้'}[mode];
+
+  const odo = (META.odoStart!=null&&META.odoEnd!=null)
+    ? 'เลขไมล์ '+n(META.odoStart,0)+' → '+n(META.odoEnd,0)+' กม. · ' : '';
+  const head='<div class="head"><div class="headtop">'+
+    '<div><h2>'+esc(META.vehicle)+'</h2><p>'+odo+'ข้อมูล '+fmtShort(META.from)+' – '+fmtShort(META.to)+' '+dOf(META.to).getFullYear()+'</p></div>'+
+    '<div class="picker"><label for="dp">ไปที่วันที่</label>'+
+    '<input type="date" id="dp" value="'+anchor+'" min="'+PICK_MIN+'" max="'+PICK_MAX+'"></div></div>'+
+    '<div class="modes" role="group" aria-label="เลือกช่วงเวลา">'+
+      MODES.map(m=>'<button type="button" data-mode="'+m.k+'" aria-pressed="'+(m.k===mode)+'">'+m.t+'</button>').join('')+
+    '</div>'+
+    '<div class="daybar">'+
+      '<button type="button" class="nav" data-step="-1" aria-label="ช่วงก่อนหน้า"'+(prevA<PICK_MIN?' disabled':'')+'>‹</button>'+
+      '<div class="days">'+buckets.map(a=>{
+        const c=chipOf(a,mode), x=aggOf(a,mode);
+        return '<button type="button" class="day" data-go="'+a+'" aria-pressed="'+(a===cur)+'">'+
+          '<span class="dw">'+c.top+'</span><br><span class="dd">'+c.mid+'</span><br><span class="dv">'+(x.trips?'🚗':'⚡')+'฿'+n(x.trips?x.netTrip:x.netChg,0)+'</span></button>';
+      }).join('')+'</div>'+
+      '<button type="button" class="nav" data-step="1" aria-label="ช่วงถัดไป"'+(nextA>PICK_MAX?' disabled':'')+'>›</button>'+
+    '</div></div>';
+
+  const srcbar='<div class="srcbar"><span>ข้อมูลสดจาก Google Sheets</span><span>อัปเดต '+esc(META.fetched)+'</span>'+
+    (META.rate?'<span>อัตราค่าไฟเฉลี่ย '+n(META.rate,2)+' ฿/kWh</span>':'')+
+    '<a href="'+esc(META.sheetUrl)+'" target="_blank" rel="noopener">เปิดสเปรดชีต</a></div>';
+
+  if(!d.rows.length){
+    app.innerHTML=head+'<div class="body">'+
+      '<div class="daytitle"><h3>'+titleOf(anchor,mode)+'</h3><span class="sub">'+r.from+' – '+r.to+'</span></div>'+
+      '<div class="bento"><div class="empty"><span class="em">🔌</span><b>ไม่มีข้อมูลใน'+unitTxt+'</b>'+
+      '<p>ไม่พบรายการเดินทางหรือการชาร์จในช่วงที่เลือก ข้อมูลในสเปรดชีตมีตั้งแต่ '+fmtShort(META.from)+' ถึง '+fmtShort(META.to)+'</p>'+
+      '<button type="button" data-go="'+keyOf(LAST_ISO,mode)+'">ไปที่ช่วงล่าสุดที่มีข้อมูล</button></div>'+
+      history()+'</div></div>'+srcbar;
+    bind(); return;
+  }
+
+  const consCard = d.km
+    ? '<div class="c stat"><div class="cap">อัตราสิ้นเปลือง</div><div class="v">'+n(d.cons)+'<i>kWh/100</i></div><div class="foot">฿'+n(d.perKm,2)+' ต่อกิโลเมตร</div></div>'
+    : '<div class="c stat"><div class="cap">เวลาที่ใช้ชาร์จ</div><div class="v">'+(d.chgMin?n(d.chgMin/60,1):'0')+'<i>ชม.</i></div><div class="foot">ชาร์จ '+d.charges+' ครั้ง ในช่วงนี้</div></div>';
+  const kmCard='<div class="c stat"><div class="cap">ระยะทาง</div><div class="v">'+n(d.km)+'<i>กม.</i></div>'+
+    '<div class="foot">'+(d.km?d.trips+' เที่ยว · '+hm(d.min):'ไม่มีการเดินทางในช่วงนี้')+'</div></div>';
+  const spanDays=Math.round((dOf(r.to)-dOf(r.from))/86400000)+1;
+  const notice=(mode!=='day'&&d.days<spanDays)
+    ? '<div class="thin">ช่วงนี้ยาว <b>'+spanDays+' วัน</b> แต่มีข้อมูลจริงเพียง <b>'+d.days+' วัน</b> — ตัวเลขทั้งหมดคำนวณจากวันที่มีข้อมูลเท่านั้น ไม่ได้เฉลี่ยเติมวันที่ว่าง</div>' : '';
+  const lowBatt=(r.from<=LAST_ISO&&r.to>=LAST_ISO&&d.s1<70)
+    ? ' · แบตเหลือ '+d.s1+'% ควรวางแผนชาร์จรอบถัดไป' : '';
+
+  app.innerHTML=head+'<div class="body">'+
+    '<div class="daytitle"><h3>'+titleOf(anchor,mode)+'</h3>'+deltaChip()+'<span class="sub">'+r.from+' – '+r.to+'</span></div>'+
+    '<div class="bento">'+
+    '<div class="c hero"><div class="cap">ค่าใช้จ่ายใน'+unitTxt+' · แยกประเภท</div>'+
+      '<div class="hsplit">'+
+        '<div class="hitem"><span class="hl">🚗 ค่าเดินทาง</span>'+
+          '<span class="hv"><small>฿</small>'+n(d.netTrip,2)+'</span>'+
+          '<span class="hs">'+(d.km?'ใช้ '+n(d.used,2)+' kWh · ฿'+n(d.perKm,2)+'/กม.':'ไม่มีการเดินทาง')+'</span></div>'+
+        '<div class="hitem"><span class="hl">⚡ ค่าชาร์จ</span>'+
+          '<span class="hv"><small>฿</small>'+n(d.netChg,2)+'</span>'+
+          '<span class="hs">'+(d.charges?'เข้า '+n(d.added,2)+' kWh · หน้ามิเตอร์ ฿'+n(d.gridChg,2):'ไม่มีการชาร์จ')+'</span></div>'+
+      '</div>'+
+      '<div class="note">ค่าชาร์จคือเงินที่จ่ายจริง ส่วนค่าเดินทางคือมูลค่าพลังงานที่ดึงจากแบตมาใช้ (kWh × '+n(META.rate,2)+' ฿) — เป็นคนละก้อน ไม่ควรนำมาบวกกัน</div></div>'+
+    kmCard+consCard+
+    '<div class="c batt"><div class="cap">แบตเตอรี่ ต้นช่วง → ปลายช่วง</div>'+
+      '<div class="battrow"><div class="cell3"><div class="lv" style="width:'+d.s1+'%"></div><div class="txt">'+d.s1+'%</div></div>'+
+      '<span class="arrow">← จาก '+d.s0+'%</span></div>'+
+      '<div class="foot">ชาร์จเข้า '+n(d.added,2)+' kWh · ใช้ไป '+n(d.used,2)+' kWh'+lowBatt+'</div></div>'+
+    notice+stripCard()+itemList(d)+history()+socChart()+
+    '</div></div>'+srcbar;
+  bind();
+}
+function bind(){
+  app.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render();});
+  app.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{anchor=b.dataset.go;render();});
+  app.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{const p=b.dataset.jump.split(':');mode=p[0];anchor=p[1];render();});
+  app.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{
+    const t=shiftAnchor(anchor,mode,+b.dataset.step);
+    if(t<PICK_MIN||t>PICK_MAX) return;
+    anchor=t; render();
+  });
+  const dp=app.querySelector('#dp');
+  if(dp) dp.onchange=()=>{ if(dp.value){anchor=dp.value;render();} };
+}
+render();
+}
+</script>
+</body>
+</html>

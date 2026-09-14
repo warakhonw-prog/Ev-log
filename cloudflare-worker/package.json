@@ -1,0 +1,16 @@
+{
+  "name": "ev-log-cloudflare-worker",
+  "version": "1.0.0",
+  "description": "24/7 Serverless EV Trip & Charge Log Webhook for Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.111.0"
+  }
+}

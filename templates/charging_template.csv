@@ -1,0 +1,2 @@
+Charge_ID,Start_DateTime,End_DateTime,SoC_Start,SoC_End,Net_kWh,Grid_kWh,Cost_Net_THB,Cost_Grid_THB,Location
+CHG-SAMPLE-001,2026-09-08 22:00:00,2026-09-09 06:00:00,30%,80%,34.40,38.22,168.56,187.29,Home Wallbox

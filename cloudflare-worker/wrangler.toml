@@ -1,0 +1,19 @@
+name = "ev-log-bot"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BATTERY_CAPACITY_KWH = "68.8"
+ELECTRICITY_RATE_THB = "4.90"
+CHARGING_EFFICIENCY = "0.90"
+GEMINI_MODEL = "gemini-3.6-flash"
+SPREADSHEET_ID = "1wI1DQLZZXSKX1-R-3Dn6hV5hcdeTvU4teG_zEuvkd3g"
+
+# Secrets ที่ต้องตั้งค่าผ่าน wrangler secret put หรือใน Cloudflare Dashboard:
+# 1. GEMINI_API_KEY
+# 2. LINE_CHANNEL_SECRET
+# 3. LINE_CHANNEL_ACCESS_TOKEN
+# 4. SPREADSHEET_ID
+# 5. GOOGLE_CLIENT_EMAIL
+# 6. GOOGLE_PRIVATE_KEY
