@@ -101,6 +101,7 @@ export interface DashboardPayload {
       odoStart: number | null;
       odoEnd: number | null;
       rate: number;
+      batteryCapacity?: number;
       from: string;
       to: string;
       fetched: string;
@@ -277,6 +278,7 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
     rows.sort((a, b) => (a.iso + " " + (a.time || "00:00")).localeCompare(b.iso + " " + (b.time || "00:00")));
 
     const defaultRate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
+    const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "66.0");
     const fromDate = rows.length > 0 ? rows[0].iso : "";
     const toDate = rows.length > 0 ? rows[rows.length - 1].iso : "";
 
@@ -294,6 +296,7 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
           odoStart: odoMin,
           odoEnd: odoMax,
           rate: defaultRate,
+          batteryCapacity: batteryCap,
           sheetTitle,
           sheetId,
           from: fromDate,

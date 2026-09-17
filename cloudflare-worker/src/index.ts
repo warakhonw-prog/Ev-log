@@ -52,26 +52,21 @@ export default {
       "Access-Control-Allow-Headers": "Content-Type",
     };
 
-    // 1. Interactive EV Web Dashboard & Charging Expense Report & Manage Tab
-    if (
-      request.method === "GET" &&
-      (url.pathname === "/" ||
-        url.pathname === "/dashboard" ||
-        url.pathname === "/charging" ||
-        url.pathname === "/manage")
-    ) {
-      const initialTab =
-        url.pathname === "/charging" || url.searchParams.get("tab") === "charging"
-          ? "charging"
-          : url.pathname === "/manage" || url.searchParams.get("tab") === "manage"
-          ? "manage"
-          : "overview";
+    // 1. Interactive EV Web Dashboard & Management Prototype
+    const validPaths = [
+      "/", "/dashboard", "/charging", "/manage", "/trips",
+      "/vehicles", "/vehicle-detail", "/charging-history",
+      "/add-charging", "/cost-analysis", "/reports", "/settings"
+    ];
+    if ((request.method === "GET" || request.method === "HEAD") && validPaths.includes(url.pathname)) {
+      const cleanPath = url.pathname.replace(/^\//, "");
+      const initialTab = (url.searchParams.get("tab") || cleanPath || "dashboard") as any;
       const payload = await fetchDashboardDataFromSheets(env);
       const html = renderDashboardHtml(payload, initialTab);
       return new Response(html, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "public, max-age=60, s-maxage=60",
+          "Cache-Control": "public, max-age=30, s-maxage=30",
         },
       });
     }
