@@ -5,6 +5,9 @@ export function renderDashboardHtml(
   initialTab: string = "dashboard"
 ): string {
   const payloadJson = JSON.stringify(payload);
+  const meta = (payload && payload.data && payload.data.meta) || ({} as any);
+  const initialBatCap = Number(meta.batteryCapacity || 68.5).toFixed(1);
+  const initialRate = Number(meta.rate || 4.90).toFixed(2);
 
   return `<!DOCTYPE html>
 <html lang="th">
@@ -961,7 +964,7 @@ table.data-table tr:hover td {
       </div>
       <div class="v-box-meta">
         <span id="sbBatText">แบตเตอรี่: 78%</span>
-        <span id="sbBatCapText">66.0 kWh</span>
+        <span id="sbBatCapText">${initialBatCap} kWh</span>
       </div>
     </div>
 
@@ -1036,11 +1039,11 @@ table.data-table tr:hover td {
     <div class="sidebar-footer">
       <div class="footer-chip">
         <span>⚡ ค่าไฟพื้นฐาน</span>
-        <strong id="sbRateText">4.90 ฿/u</strong>
+        <strong id="sbRateText">${initialRate} ฿/u</strong>
       </div>
       <div class="footer-chip">
         <span>🔋 ขนาดแบตเตอรี่</span>
-        <strong id="sbCapText">66.0 kWh</strong>
+        <strong id="sbCapText">${initialBatCap} kWh</strong>
       </div>
     </div>
   </aside>
@@ -1119,7 +1122,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   var state = {
     payload: window.__INITIAL_PAYLOAD__,
     activeView: window.__INITIAL_VIEW__ || "dashboard",
-    batteryCapacity: parseFloat(localStorage.getItem("ev_battery_capacity")) || ((window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 66.0),
+    batteryCapacity: (function() {
+      var saved = localStorage.getItem("ev_battery_capacity");
+      if (saved && saved !== "66" && saved !== "66.0") return parseFloat(saved);
+      return (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 68.5;
+    })(),
     unitRate: parseFloat(localStorage.getItem("ev_unit_rate")) || ((window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.rate) || 4.90),
     rateOnPeak: parseFloat(localStorage.getItem("ev_rate_onpeak")) || 4.70,
     rateOffPeak: parseFloat(localStorage.getItem("ev_rate_offpeak")) || 2.60,
@@ -1163,7 +1170,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var sbPlate = document.getElementById("sbVehiclePlate");
     var sbFill = document.getElementById("sbBatFill");
     var sbText = document.getElementById("sbBatText");
-    var sbCapText = document.getElementById("sbBatCapText");
+    var sbBatCapText = document.getElementById("sbBatCapText");
+    var sbCapText = document.getElementById("sbCapText");
     var sbRateText = document.getElementById("sbRateText");
     var topRateDisplay = document.getElementById("topRateDisplay");
     var badgeChargeCount = document.getElementById("badgeChargeCount");
@@ -1172,6 +1180,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     if (sbPlate) sbPlate.innerText = state.vehiclePlate;
     if (sbFill) sbFill.style.width = Math.min(100, Math.max(5, currentSoc)) + "%";
     if (sbText) sbText.innerText = "SOC ล่าสุด: " + currentSoc + "%";
+    if (sbBatCapText) sbBatCapText.innerText = state.batteryCapacity.toFixed(1) + " kWh";
     if (sbCapText) sbCapText.innerText = state.batteryCapacity.toFixed(1) + " kWh";
     if (sbRateText) sbRateText.innerText = state.unitRate.toFixed(2) + " ฿/u";
     if (topRateDisplay) topRateDisplay.innerText = state.unitRate.toFixed(2) + " ฿/kWh";
@@ -1734,13 +1743,13 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;">🔋 ตั้งค่าความจุแบตเตอรี่และข้อมูลรถยนต์ (Battery Capacity & Vehicle)</h4>' +
           '<div class="form-grid">' +
             '<div class="form-group"><label>ชื่อรุ่นรถยนต์ (Vehicle Model)</label><input type="text" class="form-control" id="cfgVehicleName" value="' + state.vehicleName + '" required></div>' +
-            '<div class="form-group"><label>ความจุแบตเตอรี่ (kWh) *แก้ไขได้ตลอดเวลา</label><input type="number" step="0.1" class="form-control mono" id="cfgBatteryCapacity" value="' + state.batteryCapacity + '" required><span class="form-hint">ใช้คำนวณ SOC% และพลังงานเข้าสู่แบตเตอรี่ (เช่น 66.0, 60.4, 82.5)</span></div>' +
+            '<div class="form-group"><label>ความจุแบตเตอรี่ (kWh) *แก้ไขได้ตลอดเวลา</label><input type="number" step="0.1" class="form-control mono" id="cfgBatteryCapacity" value="' + state.batteryCapacity + '" required><span class="form-hint">ใช้คำนวณ SOC% และพลังงานเข้าสู่แบตเตอรี่ (เช่น 68.5, 60.4, 82.5)</span></div>' +
             '<div class="form-group"><label>เลขทะเบียนรถ</label><input type="text" class="form-control" id="cfgVehiclePlate" value="' + state.vehiclePlate + '"></div>' +
           '</div>' +
           '<div style="margin-top:14px;">' +
             '<div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;">เลือกรุ่นรถสำเร็จรูป (Presets):</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
-              '<button type="button" class="btn btn-secondary btn-sm" data-preset="XPENG G6 Standard" data-cap="66.0">XPENG G6 STD (66 kWh)</button>' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-preset="XPENG G6 Standard" data-cap="68.5">XPENG G6 STD (68.5 kWh)</button>' +
               '<button type="button" class="btn btn-secondary btn-sm" data-preset="XPENG G6 Long Range" data-cap="87.5">XPENG G6 LR (87.5 kWh)</button>' +
               '<button type="button" class="btn btn-secondary btn-sm" data-preset="BYD Atto 3 Extended" data-cap="60.48">BYD Atto 3 (60.5 kWh)</button>' +
               '<button type="button" class="btn btn-secondary btn-sm" data-preset="BYD Seal Premium" data-cap="82.5">BYD Seal (82.5 kWh)</button>' +
@@ -1913,7 +1922,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     if (formSettings) {
       formSettings.onsubmit = function(e) {
         e.preventDefault();
-        var cap = parseFloat(document.getElementById("cfgBatteryCapacity").value) || 66.0;
+        var cap = parseFloat(document.getElementById("cfgBatteryCapacity").value) || 68.5;
         var rate = parseFloat(document.getElementById("cfgUnitRate").value) || 4.90;
         var onPeak = parseFloat(document.getElementById("cfgRateOnPeak").value) || 4.70;
         var offPeak = parseFloat(document.getElementById("cfgRateOffPeak").value) || 2.60;
@@ -1957,7 +1966,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           localStorage.removeItem("ev_vehicle_name");
           localStorage.removeItem("ev_vehicle_plate");
 
-          state.batteryCapacity = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 66.0;
+          state.batteryCapacity = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 68.5;
           state.unitRate = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.rate) || 4.90;
           state.rateOnPeak = 4.70;
           state.rateOffPeak = 2.60;

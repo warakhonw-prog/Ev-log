@@ -18,7 +18,7 @@ GOOGLE_SERVICE_ACCOUNT_FILE = os.getenv(
 )
 
 # Vehicle Constants ตามสเปก
-BATTERY_CAPACITY_KWH = float(os.getenv("BATTERY_CAPACITY_KWH", "68.8"))
+BATTERY_CAPACITY_KWH = float(os.getenv("BATTERY_CAPACITY_KWH", "68.5"))
 ELECTRICITY_RATE_THB = float(os.getenv("ELECTRICITY_RATE_THB", "4.90"))
 CHARGING_EFFICIENCY = float(os.getenv("CHARGING_EFFICIENCY", "0.90"))
 

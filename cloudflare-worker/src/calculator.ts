@@ -36,7 +36,7 @@ function normalizeSoc(soc: number | null): number | null {
 export function buildTripRecord(data: TripExtractionResult, env: Env): TripRecord {
   const rate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
   const efficiency = parseFloat(env.CHARGING_EFFICIENCY || "0.90");
-  const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.8");
+  const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.5");
   const { date, time, timestamp, hour } = getNowParts();
   const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
   const trip_id = `TRIP-${timestamp}-${randomSuffix}`;
@@ -109,7 +109,7 @@ export function buildTripRecord(data: TripExtractionResult, env: Env): TripRecor
 }
 
 export function buildChargingRecord(data: ChargingExtractionResult, env: Env): ChargingRecord {
-  const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.8");
+  const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.5");
   const defaultRate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
   const efficiency = parseFloat(env.CHARGING_EFFICIENCY || "0.90");
   const { date: nowDate, time: nowTime, timestamp } = getNowParts();

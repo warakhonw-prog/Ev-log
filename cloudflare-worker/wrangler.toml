@@ -4,7 +4,7 @@ compatibility_date = "2024-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-BATTERY_CAPACITY_KWH = "68.8"
+BATTERY_CAPACITY_KWH = "68.5"
 ELECTRICITY_RATE_THB = "4.90"
 CHARGING_EFFICIENCY = "0.90"
 GEMINI_MODEL = "gemini-3.6-flash"
