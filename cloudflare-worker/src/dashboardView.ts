@@ -994,13 +994,20 @@ table.data-table tr:hover td {
         <a class="nav-link" data-view="trips">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
           บันทึกการเดินทาง (Trips)
+          <span class="nav-badge" id="badgeTripCount" style="background:#EEF2FF;color:#4F46E5;">0</span>
+        </a>
+      </li>
+      <li>
+        <a class="nav-link" data-view="add-trip">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          + บันทึกการเดินทาง
         </a>
       </li>
 
       <div class="nav-section-title" style="margin-top:8px">วิเคราะห์และข้อมูลรถ</div>
       <li>
         <a class="nav-link" data-view="vehicles">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
           โปรไฟล์รถยนต์ (Vehicles)
         </a>
       </li>
@@ -1070,8 +1077,12 @@ table.data-table tr:hover td {
         <button class="btn btn-secondary btn-icon-only" id="btnRefreshData" title="รีเฟรชข้อมูลจาก Google Sheets">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         </button>
-        <button class="btn btn-primary" data-nav="add-charging">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <button class="btn btn-secondary btn-sm" data-nav="add-trip" style="display:inline-flex;align-items:center;gap:5px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+          + บันทึกการเดินทาง
+        </button>
+        <button class="btn btn-primary btn-sm" data-nav="add-charging" style="display:inline-flex;align-items:center;gap:5px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           + บันทึกการชาร์จ
         </button>
       </div>
@@ -1175,6 +1186,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var sbRateText = document.getElementById("sbRateText");
     var topRateDisplay = document.getElementById("topRateDisplay");
     var badgeChargeCount = document.getElementById("badgeChargeCount");
+    var badgeTripCount = document.getElementById("badgeTripCount");
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
 
     if (sbName) sbName.innerHTML = '<span class="v-status-dot"></span> ' + state.vehicleName;
     if (sbPlate) sbPlate.innerText = state.vehiclePlate;
@@ -1185,6 +1198,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     if (sbRateText) sbRateText.innerText = state.unitRate.toFixed(2) + " ฿/u";
     if (topRateDisplay) topRateDisplay.innerText = state.unitRate.toFixed(2) + " ฿/kWh";
     if (badgeChargeCount) badgeChargeCount.innerText = chargeRows.length;
+    if (badgeTripCount) badgeTripCount.innerText = tripRows.length;
   }
 
   function computeAggregates() {
@@ -1286,6 +1300,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       "charging-history": ["ประวัติการชาร์จ", "บันทึกประวัติการชาร์จไฟทั้งหมด ค้นหา กรอง และจัดการข้อมูล"],
       "add-charging": ["บันทึกการชาร์จใหม่", "กรอกข้อมูลการชาร์จพร้อมคำนวณพลังงานและค่าไฟอัตโนมัติ"],
       "trips": ["บันทึกการเดินทาง (Trips)", "ติดตามระยะทาง อัตรากินไฟ และประวัติการขับขี่"],
+      "add-trip": ["บันทึกการเดินทางใหม่ (New Trip)", "กรอกข้อมูลระยะทาง เลขไมล์ อัตราสิ้นเปลือง และคำนวณพลังงานที่ใช้"],
       "vehicles": ["โปรไฟล์รถยนต์", "ข้อมูลจำเพาะ ขนาดแบตเตอรี่ และสถานะรถยนต์ไฟฟ้าในระบบ"],
       "vehicle-detail": ["สเปกและสุขภาพแบตเตอรี่", "การประเมินรอบการชาร์จ (Cycles) และสุขภาพแบตเตอรี่"],
       "cost-analysis": ["วิเคราะห์ค่าใช้จ่ายและประหยัด", "เปรียบเทียบต้นทุนต่อกิโลเมตรกับรถน้ำมันเบนซิน"],
@@ -1312,6 +1327,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         break;
       case "trips":
         html = renderTripsView(agg, rows);
+        break;
+      case "add-trip":
+        html = renderAddTripView(rows);
         break;
       case "vehicles":
         html = renderVehiclesView(agg);
@@ -1573,6 +1591,57 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
+  function renderAddTripView(rows) {
+    var today = new Date().toISOString().substring(0, 10);
+    var nowTime = new Date().toTimeString().substring(0, 5);
+
+    var tripRows = (rows || []).filter(function(r) { return r.kind === "trip"; });
+    var lastTrip = tripRows.length > 0 ? tripRows[tripRows.length - 1] : null;
+    var lastOdo = lastTrip && lastTrip.odoEnd ? lastTrip.odoEnd : (state.payload.data && state.payload.data.meta ? (state.payload.data.meta.odoEnd || 0) : 0);
+    var lastSoc = lastTrip && lastTrip.s1 ? lastTrip.s1 : 80;
+
+    return '<div class="card" style="max-width:860px;margin:0 auto;width:100%;">' +
+      '<div class="card-header"><div><div class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> แบบฟอร์มบันทึกข้อมูลการเดินทาง (New Trip Driving Log)</div><div class="card-subtitle">บันทึกระยะทาง เลขไมล์ อัตราสิ้นเปลือง และคำนวณพลังงานที่ใช้อัตโนมัติ</div></div></div>' +
+      '<form id="formAddTrip" style="display:flex;flex-direction:column;gap:20px;">' +
+        '<div class="form-grid">' +
+          '<div class="form-group"><label>📅 วันที่เดินทาง</label><input type="date" class="form-control" name="date" value="' + today + '" required></div>' +
+          '<div class="form-group"><label>⏰ เวลาออกเดินทาง / บันทึก</label><input type="time" class="form-control" name="time" value="' + nowTime + '" required></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="form-group"><label>🚗 เลือกรถยนต์</label><select class="form-control" name="vehicle" id="tripVehicleSelect"><option value="' + state.vehicleName + '">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</option></select></div>' +
+          '<div class="form-group"><label>🗺️ รายละเอียดเส้นทาง / สภาพการขับขี่</label><input type="text" class="form-control" name="note" id="tripNote" placeholder="เช่น ECO mode, 28°C หรือ เดินทางไปทำงาน" value="การเดินทางทั่วไป" required></div>' +
+        '</div>' +
+        '<div style="background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
+          '<div style="font-weight:600;color:var(--text-main);margin-bottom:12px;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> 📍 เลขไมล์และระยะทาง (Odometer & Distance)</div>' +
+          '<div class="form-grid">' +
+            '<div class="form-group"><label>เลขไมล์เริ่มต้น (km)</label><input type="number" step="0.1" class="form-control mono" name="odoStart" id="tripOdoStart" value="' + (lastOdo || "") + '" placeholder="เช่น 2039"><span class="form-hint">ไมล์ล่าสุดจากทริปก่อนหน้า</span></div>' +
+            '<div class="form-group"><label>เลขไมล์สิ้นสุด (km)</label><input type="number" step="0.1" class="form-control mono" name="odoEnd" id="tripOdoEnd" placeholder="เช่น 2054"><span class="form-hint">กรอกเพื่อคำนวณระยะทางอัตโนมัติ</span></div>' +
+          '</div>' +
+          '<div class="form-grid" style="margin-top:14px;">' +
+            '<div class="form-group"><label>📏 ระยะทางที่วิ่งได้ (km) *</label><input type="number" step="0.1" class="form-control mono" name="distanceKm" id="tripDistanceKm" placeholder="เช่น 15.4" required><span class="form-hint" id="tripDistHint">ระยะทางสุทธิของทริปนี้</span></div>' +
+            '<div class="form-group"><label>⏱️ ระยะเวลาเดินทาง (นาที)</label><input type="number" class="form-control mono" name="durationMin" id="tripDurationMin" placeholder="เช่น 25" value="25"><span class="form-hint">เวลาที่ใช้บนท้องถนน</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:var(--teal-pale);border:1px solid #99F6E4;border-radius:var(--radius-lg);padding:18px;">' +
+          '<div style="font-weight:600;color:var(--teal-hover);margin-bottom:12px;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ⚡ ระดับแบตเตอรี่ พลังงาน และค่าใช้จ่าย (SOC & Energy)</div>' +
+          '<div class="form-grid">' +
+            '<div class="form-group"><label>SOC เริ่มต้น (%)</label><input type="number" class="form-control mono" name="socStart" id="tripSocStart" min="0" max="100" value="' + lastSoc + '"><span class="form-hint">ระดับแบตก่อนออกเดินทาง</span></div>' +
+            '<div class="form-group"><label>SOC สิ้นสุด (%)</label><input type="number" class="form-control mono" name="socEnd" id="tripSocEnd" min="0" max="100" placeholder="เช่น ' + Math.max(0, lastSoc - 4) + '"><span class="form-hint">ระดับแบตเมื่อถึงที่หมาย</span></div>' +
+          '</div>' +
+          '<div class="form-grid" style="margin-top:14px;">' +
+            '<div class="form-group"><label>อัตราสิ้นเปลืองเฉลี่ย (Wh/km)</label><input type="number" step="0.1" class="form-control mono" name="avgConsumption" id="tripAvgConsumption" placeholder="เช่น 14.5"><span class="form-hint">Wh/km หรือคำนวณจาก SOC / ระยะทาง</span></div>' +
+            '<div class="form-group"><label>พลังงานที่ใช้ (kWh) *</label><input type="number" step="0.01" class="form-control mono" name="energyKwh" id="tripEnergyKwh" required><span class="form-hint" id="tripKwhHint">พลังงานสุทธิที่ใช้ไป</span></div>' +
+          '</div>' +
+          '<div class="form-group" style="margin-top:14px;"><label>💰 ค่าไฟเฉลี่ยในการเดินทาง (฿) *</label><input type="number" step="0.01" class="form-control mono" name="costNetThb" id="tripCostNetThb" required><span class="form-hint" id="tripCostHint">คำนวณจากพลังงาน × อัตราค่าไฟ ' + state.unitRate.toFixed(2) + ' ฿/kWh</span></div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:10px;">' +
+          '<button type="button" class="btn btn-secondary" data-nav="trips">ยกเลิก</button>' +
+          '<button type="submit" class="btn btn-primary" id="btnSubmitAddTrip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> บันทึกข้อมูลการเดินทาง</button>' +
+        '</div>' +
+      '</form>' +
+    '</div>';
+  }
+
   function renderTripsView(agg, rows) {
     var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
     var reversedTrips = tripRows.slice().reverse();
@@ -1593,7 +1662,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       }).join("");
 
     return '<div class="card">' +
-      '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> ประวัติการเดินทางและการขับขี่ (Trip Driving Log)</div><div class="card-subtitle">บันทึกระยะทางและอัตราสิ้นเปลืองในแต่ละเส้นทาง</div></div><button class="btn btn-primary btn-sm" data-nav="manage">+ บันทึกการเดินทางใหม่</button></div>' +
+      '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> ประวัติการเดินทางและการขับขี่ (Trip Driving Log)</div><div class="card-subtitle">บันทึกระยะทางและอัตราสิ้นเปลืองในแต่ละเส้นทาง</div></div><button class="btn btn-primary btn-sm" data-nav="add-trip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> + บันทึกการเดินทางใหม่</button></div>' +
       '<div class="table-wrapper">' +
         '<table class="data-table"><thead><tr><th>วันที่</th><th>รายละเอียดเส้นทาง / จุดหมาย</th><th>ไมล์เริ่มต้น</th><th>ไมล์สิ้นสุด</th><th>ระยะทาง (km)</th><th>ระยะเวลา (นาที)</th><th>อัตราสิ้นเปลือง</th><th>จัดการ</th></tr></thead>' +
         '<tbody>' + rowsHtml + '</tbody></table>' +
@@ -1914,6 +1983,113 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           showToast("เกิดข้อผิดพลาดในการส่งข้อมูล: " + err.message, "error");
         } finally {
           if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerText = "บันทึกข้อมูลการชาร์จ"; }
+        }
+      };
+    }
+
+    var formTrip = document.getElementById("formAddTrip");
+    if (formTrip) {
+      var odo0In = document.getElementById("tripOdoStart");
+      var odo1In = document.getElementById("tripOdoEnd");
+      var distIn = document.getElementById("tripDistanceKm");
+      var s0In = document.getElementById("tripSocStart");
+      var s1In = document.getElementById("tripSocEnd");
+      var consIn = document.getElementById("tripAvgConsumption");
+      var kwhIn = document.getElementById("tripEnergyKwh");
+      var costIn = document.getElementById("tripCostNetThb");
+      var distHint = document.getElementById("tripDistHint");
+      var kwhHint = document.getElementById("tripKwhHint");
+      var costHint = document.getElementById("tripCostHint");
+
+      var recalcTrip = function(source) {
+        var o0 = parseFloat(odo0In.value);
+        var o1 = parseFloat(odo1In.value);
+        var d = parseFloat(distIn.value);
+        var s0 = parseFloat(s0In.value);
+        var s1 = parseFloat(s1In.value);
+        var cons = parseFloat(consIn.value);
+
+        if (source === "odo" && !isNaN(o0) && !isNaN(o1) && o1 >= o0) {
+          d = Math.round((o1 - o0) * 10) / 10;
+          distIn.value = d;
+          if (distHint) distHint.innerText = "คำนวณจาก " + o1 + " - " + o0 + " = " + d + " km";
+        } else if (source === "dist" && !isNaN(o0) && !isNaN(d) && d > 0) {
+          o1 = Math.round((o0 + d) * 10) / 10;
+          odo1In.value = o1;
+        }
+
+        var kwh = 0;
+        if (!isNaN(s0) && !isNaN(s1) && s0 > s1) {
+          var socDiff = s0 - s1;
+          kwh = (socDiff / 100) * state.batteryCapacity;
+          kwhIn.value = kwh.toFixed(2);
+          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s0 + " - " + s1 + ")% × " + state.batteryCapacity.toFixed(1) + " kWh";
+          if (d > 0 && isNaN(cons)) {
+            cons = (kwh * 1000) / d;
+            consIn.value = cons.toFixed(1);
+          }
+        } else if (!isNaN(cons) && cons > 0 && d > 0) {
+          kwh = (d * cons) / 1000;
+          kwhIn.value = kwh.toFixed(2);
+          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + d + " km × " + cons + " Wh/km) ÷ 1,000";
+        }
+
+        var currentKwh = parseFloat(kwhIn.value) || kwh;
+        var cost = currentKwh * state.unitRate;
+        costIn.value = cost.toFixed(2);
+        if (costHint) costHint.innerText = "คำนวณจาก " + currentKwh.toFixed(2) + " kWh × " + state.unitRate.toFixed(2) + " ฿/kWh";
+      };
+
+      if (odo0In) odo0In.oninput = function() { recalcTrip("odo"); };
+      if (odo1In) odo1In.oninput = function() { recalcTrip("odo"); };
+      if (distIn) distIn.oninput = function() { recalcTrip("dist"); };
+      if (s0In) s0In.oninput = function() { recalcTrip("soc"); };
+      if (s1In) s1In.oninput = function() { recalcTrip("soc"); };
+      if (consIn) consIn.oninput = function() { recalcTrip("cons"); };
+      if (kwhIn) kwhIn.oninput = function() { recalcTrip("kwh"); };
+
+      formTrip.onsubmit = async function(e) {
+        e.preventDefault();
+        var btnSubmit = document.getElementById("btnSubmitAddTrip");
+        if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.innerText = "กำลังบันทึกข้อมูล..."; }
+
+        var formData = new FormData(formTrip);
+        var payload = {
+          date: formData.get("date"),
+          time: formData.get("time"),
+          odoStart: formData.get("odoStart"),
+          odoEnd: formData.get("odoEnd"),
+          distanceKm: formData.get("distanceKm"),
+          durationMin: formData.get("durationMin"),
+          avgConsumption: formData.get("avgConsumption"),
+          socStart: formData.get("socStart"),
+          socEnd: formData.get("socEnd"),
+          energyKwh: formData.get("energyKwh"),
+          costNetThb: formData.get("costNetThb"),
+          costGridThb: formData.get("costNetThb"),
+          note: formData.get("note")
+        };
+
+        try {
+          var res = await fetch("/api/records", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          var json = await res.json();
+          if (json.ok) {
+            showToast("บันทึกการเดินทางใหม่เข้า Google Sheets เรียบร้อยแล้ว!", "success");
+            var dRes = await fetch("/api/data");
+            var dJson = await dRes.json();
+            if (dJson.ok) state.payload = dJson;
+            window.evNavigate("trips");
+          } else {
+            showToast("บันทึกไม่สำเร็จ: " + (json.error || "Unknown"), "error");
+          }
+        } catch (err) {
+          showToast("เกิดข้อผิดพลาดในการส่งข้อมูล: " + err.message, "error");
+        } finally {
+          if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerText = "บันทึกข้อมูลการเดินทาง"; }
         }
       };
     }
