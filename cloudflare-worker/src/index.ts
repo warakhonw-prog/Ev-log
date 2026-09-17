@@ -90,8 +90,8 @@ export default {
         const distanceKm = body.distanceKm !== "" && body.distanceKm != null ? parseFloat(body.distanceKm) : 0;
         const durationMin = body.durationMin !== "" && body.durationMin != null ? parseFloat(body.durationMin) : 0;
         const avgConsumption = body.avgConsumption !== "" && body.avgConsumption != null ? parseFloat(body.avgConsumption) : 0;
-        const socStart = body.socStart !== "" && body.socStart != null ? parseFloat(body.socStart) : 0;
-        const socEnd = body.socEnd !== "" && body.socEnd != null ? parseFloat(body.socEnd) : 0;
+        const socStart = body.socStart !== "" && body.socStart != null ? `${parseFloat(body.socStart)}%` : "";
+        const socEnd = body.socEnd !== "" && body.socEnd != null ? `${parseFloat(body.socEnd)}%` : "";
         const energyKwh = body.energyKwh !== "" && body.energyKwh != null ? parseFloat(body.energyKwh) : 0;
         const costNetThb = body.costNetThb !== "" && body.costNetThb != null ? parseFloat(body.costNetThb) : 0;
         const costGridThb = body.costGridThb !== "" && body.costGridThb != null ? parseFloat(body.costGridThb) : costNetThb;
@@ -143,8 +143,8 @@ export default {
         const distanceKm = body.distanceKm !== "" && body.distanceKm != null ? parseFloat(body.distanceKm) : 0;
         const durationMin = body.durationMin !== "" && body.durationMin != null ? parseFloat(body.durationMin) : 0;
         const avgConsumption = body.avgConsumption !== "" && body.avgConsumption != null ? parseFloat(body.avgConsumption) : 0;
-        const socStart = body.socStart !== "" && body.socStart != null ? parseFloat(body.socStart) : 0;
-        const socEnd = body.socEnd !== "" && body.socEnd != null ? parseFloat(body.socEnd) : 0;
+        const socStart = body.socStart !== "" && body.socStart != null ? `${parseFloat(body.socStart)}%` : "";
+        const socEnd = body.socEnd !== "" && body.socEnd != null ? `${parseFloat(body.socEnd)}%` : "";
         const energyKwh = body.energyKwh !== "" && body.energyKwh != null ? parseFloat(body.energyKwh) : 0;
         const costNetThb = body.costNetThb !== "" && body.costNetThb != null ? parseFloat(body.costNetThb) : 0;
         const costGridThb = body.costGridThb !== "" && body.costGridThb != null ? parseFloat(body.costGridThb) : costNetThb;

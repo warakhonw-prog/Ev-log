@@ -123,8 +123,17 @@ function parseNum(val: any): number {
 function parsePct(val: any): number {
   if (val === null || val === undefined || val === "") return 0;
   const s = val.toString().replace(/%/g, "").trim();
-  const n = parseFloat(s);
-  return isNaN(n) ? 0 : n;
+  let n = parseFloat(s);
+  if (isNaN(n)) return 0;
+  // If stored as 0.39 in Sheets unformatted
+  if (n > 0 && n <= 1.0 && val.toString().includes(".")) {
+    n = n * 100;
+  }
+  // If Sheets percentage format multiplied pure number 39 -> 3900%
+  if (n > 100 && n <= 10000) {
+    n = n / 100;
+  }
+  return Math.round(n);
 }
 
 function normDate(val: any): string {
