@@ -556,23 +556,61 @@ body {
   margin-top: 2px;
 }
 
-/* KPI 6-Grid */
+/* KPI 6-Grid & Cards */
+.kpi-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.kpi-section-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1360px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 }
 
 .kpi-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: 16px 16px;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
 }
 
 .kpi-card::before {
@@ -582,13 +620,13 @@ body {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--kpi-accent, var(--teal));
+  background: var(--kpi-accent, var(--primary));
 }
 
 .kpi-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 10px;
 }
 
@@ -602,11 +640,12 @@ body {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: var(--kpi-soft, var(--teal-soft));
-  color: var(--kpi-accent, var(--teal));
+  background: var(--kpi-soft, var(--primary-soft));
+  color: var(--kpi-accent, var(--primary));
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .kpi-value-box {
@@ -621,6 +660,7 @@ body {
   font-weight: 700;
   color: var(--text-main);
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .kpi-unit {
@@ -629,25 +669,342 @@ body {
   color: var(--text-muted);
 }
 
+.kpi-badge-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.kpi-trend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.kpi-trend-pill.positive {
+  background: var(--emerald-soft);
+  color: var(--emerald);
+}
+
+.kpi-trend-pill.neutral {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.kpi-trend-pill.warning {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
 .kpi-subtext {
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--text-subtle);
-  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
+/* Vehicle Hero Telemetry Card */
+.hero-telemetry-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hero-telemetry-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+}
+
+.hero-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hero-vehicle-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.v-status-dot-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse-green 2s infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.hero-plate-badge {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.hero-sync-time {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Hero Body Grid */
+.hero-body-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.8fr;
+  gap: 18px;
+  align-items: center;
+}
+
+@media (max-width: 960px) {
+  .hero-body-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.hero-soc-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-soc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.hero-soc-pill {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hero-soc-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-subtle);
+}
+
+.hero-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.hero-stat-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hero-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.hero-stat-val {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+.hero-stat-unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Analytics Split Grid */
+.analytics-split-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 1024px) {
+  .analytics-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.charging-mix-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.charging-mix-bar {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--border);
+  display: flex;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.charging-mix-ac {
+  background: linear-gradient(90deg, #0284C7, #38BDF8);
+  transition: width 0.4s ease;
+}
+
+.charging-mix-dc {
+  background: linear-gradient(90deg, #6366F1, #818CF8);
+  transition: width 0.4s ease;
+}
+
+.charging-mix-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mix-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.mix-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.mix-dot.ac {
+  background: #0284C7;
+}
+
+.mix-dot.dc {
+  background: #6366F1;
+}
+
+.mix-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.mix-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.smart-advice-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.smart-advice-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.smart-advice-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 /* Insight Banner */
 .insight-banner {
   background: linear-gradient(135deg, #F0FDFA, #E0F2FE);
-  border: 1px solid #99F6E4;
+  border: 1px solid #BAE6FD;
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
 }
 
 .insight-content {
@@ -657,26 +1014,26 @@ body {
 }
 
 .insight-icon-bubble {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: #FFFFFF;
-  color: var(--teal);
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.15);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.15);
   flex-shrink: 0;
 }
 
 .insight-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-main);
 }
 
 .insight-desc {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -1150,6 +1507,12 @@ table.data-table tr:hover td {
 [data-theme="dark"] .v-bat-track { background: #17234D; }
 [data-theme="dark"] .insight-banner { background: linear-gradient(135deg, #111C44, #17234D); border-color: rgba(56, 189, 248, 0.25); }
 [data-theme="dark"] .insight-icon-bubble { background: #17234D; color: var(--primary); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+[data-theme="dark"] .hero-telemetry-card { background: #111C44; border-color: rgba(255, 255, 255, 0.09); }
+[data-theme="dark"] .hero-soc-card { background: #17234D; border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .hero-stat-box { background: #17234D; border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .mix-legend-item { background: #17234D; border-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .smart-advice-box { background: #17234D; border-color: rgba(255, 255, 255, 0.08); }
+
 
 /* Responsive Rules for Tablet & Mobile */
 @media (max-width: 900px) {
@@ -1238,6 +1601,58 @@ table.data-table tr:hover td {
   }
   .page-title-box p {
     display: none;
+  }
+  .hero-telemetry-card {
+    padding: 14px 14px;
+    gap: 12px;
+  }
+  .hero-vehicle-title {
+    font-size: 14.5px;
+  }
+  .hero-actions {
+    width: 100%;
+  }
+  .hero-actions .btn {
+    flex: 1;
+  }
+  .hero-metrics-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .hero-stat-box {
+    padding: 8px 6px;
+    gap: 6px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .hero-stat-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+  }
+  .hero-stat-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .hero-stat-label {
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  .hero-stat-val {
+    font-size: 14px;
+  }
+  .hero-stat-unit {
+    font-size: 9.5px;
+  }
+  .hero-soc-pill {
+    font-size: 22px;
+  }
+  .kpi-trend-pill {
+    font-size: 9.5px;
+    padding: 1px 5px;
+  }
+  .charging-mix-legend {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1882,6 +2297,31 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var recentCharges = chargeRows.slice(-5).reverse();
     var monthly = computeMonthlyData();
 
+    var acKwh = 0, dcKwh = 0, acCost = 0, dcCost = 0, acCount = 0, dcCount = 0;
+    chargeRows.forEach(function(r) {
+      var isDc = r.note && r.note.toUpperCase().indexOf("DC") !== -1;
+      if (isDc) {
+        dcKwh += (r.kwh || 0);
+        dcCost += (r.net || 0);
+        dcCount++;
+      } else {
+        acKwh += (r.kwh || 0);
+        acCost += (r.net || 0);
+        acCount++;
+      }
+    });
+    var totalChargeKwh = acKwh + dcKwh;
+    var acPct = totalChargeKwh > 0 ? Math.round((acKwh / totalChargeKwh) * 100) : 0;
+    var dcPct = totalChargeKwh > 0 ? (100 - acPct) : 0;
+
+    var whPerKm = agg.efficiencyKmPerKwh > 0 ? Math.round(1000 / agg.efficiencyKmPerKwh) : 0;
+    var costPerKmSavedPct = agg.petrolCostPerKm > 0 ? Math.round(((agg.petrolCostPerKm - agg.costPerKm) / agg.petrolCostPerKm) * 100) : 0;
+    var savingsPct = (agg.totalDistanceKm > 0 && agg.petrolCostPerKm > 0) ? Math.round((agg.totalSavings / (agg.totalDistanceKm * agg.petrolCostPerKm)) * 100) : 0;
+
+    var socWidth = Math.min(100, Math.max(5, vState.soc));
+    var socColor = vState.soc <= 20 ? "var(--rose)" : vState.soc <= 40 ? "var(--amber)" : "var(--emerald)";
+    var socGradient = vState.soc <= 20 ? "linear-gradient(90deg, #F87171, #EF4444)" : vState.soc <= 40 ? "linear-gradient(90deg, #FBBF24, #F59E0B)" : "linear-gradient(90deg, #38BDF8, #10B981)";
+
     var chartSvg = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">ยังไม่มีข้อมูลประวัติการชาร์จเพียงพอสำหรับแสดงกราฟ</div>';
     if (monthly.length > 0) {
       var maxKwh = Math.max.apply(Math, monthly.map(function(m) { return m.kwh; }).concat([10]));
@@ -1912,98 +2352,292 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var recentRowsHtml = recentCharges.length === 0 ?
       '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีข้อมูลการชาร์จ</td></tr>' :
       recentCharges.map(function(r) {
-        var isDc = r.note && r.note.includes("DC");
+        var isDc = r.note && r.note.toUpperCase().indexOf("DC") !== -1;
         return '<tr>' +
           '<td><strong>' + (r.iso || "-") + '</strong><div style="font-size:11.5px;color:var(--text-muted);font-family:var(--font-mono)">' + (r.time || "-") + '</div></td>' +
           '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '">' + (r.note || "ชาร์จไฟ") + '</span></td>' +
           '<td class="mono">' + (r.s0 || 0) + '% → <strong>' + (r.s1 || 0) + '%</strong></td>' +
           '<td class="mono"><strong>' + fmtNum(r.kwh, 2) + '</strong> kWh</td>' +
-          '<td class="mono" style="color:var(--teal);font-weight:600;">' + fmtNum(r.net, 2) + ' ฿</td>' +
+          '<td class="mono" style="color:var(--primary);font-weight:600;">' + fmtNum(r.net, 2) + ' ฿</td>' +
           '<td class="mono" style="color:var(--text-muted)">' + (r.kwh > 0 ? fmtNum(r.net / r.kwh, 2) : "-") + '</td>' +
           '<td><button class="btn btn-secondary btn-sm" data-action="edit" data-row="' + r.sheetRowIndex + '">แก้ไข</button></td>' +
           '</tr>';
       }).join("");
 
-    return '<div class="kpi-grid">' +
-      '<div class="kpi-card" style="--kpi-accent:var(--teal);--kpi-soft:var(--teal-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">พลังงานสะสมที่ชาร์จ</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalChargedKwh, 1) + '</span><span class="kpi-unit">kWh</span></div>' +
-        '<div class="kpi-subtext">เทียบเท่า ~' + agg.chargeCycles.toFixed(1) + ' รอบแบตเตอรี่เต็ม</div>' +
-      '</div>' +
-
-      '<div class="kpi-card" style="--kpi-accent:var(--sky);--kpi-soft:var(--sky-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">ค่าใช้จ่ายการชาร์จรวม</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalCostThb, 0) + '</span><span class="kpi-unit">฿</span></div>' +
-        '<div class="kpi-subtext">เฉลี่ย ' + (agg.chargeCount > 0 ? fmtNum(agg.totalCostThb / agg.chargeCount, 0) : 0) + ' ฿ ต่อครั้ง</div>' +
-      '</div>' +
-
-      '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">ระยะทางวิ่งสะสม</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalDistanceKm, 0) + '</span><span class="kpi-unit">km</span></div>' +
-        '<div class="kpi-subtext">Odometer ล่าสุด: ' + fmtNum(vState.odo || agg.latestOdo, 0) + ' km</div>' +
-      '</div>' +
-
-      '<div class="kpi-card" style="--kpi-accent:var(--indigo);--kpi-soft:var(--indigo-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">ประสิทธิภาพพลังงาน</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.efficiencyKmPerKwh, 1) + '</span><span class="kpi-unit">km/kWh</span></div>' +
-        '<div class="kpi-subtext">เฉลี่ย ~' + (agg.efficiencyKmPerKwh > 0 ? fmtNum(1000 / agg.efficiencyKmPerKwh, 0) : 0) + ' Wh/km</div>' +
-      '</div>' +
-
-      '<div class="kpi-card" style="--kpi-accent:var(--teal);--kpi-soft:var(--teal-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">ต้นทุนต่อกิโลเมตร</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.costPerKm, 2) + '</span><span class="kpi-unit">฿/km</span></div>' +
-        '<div class="kpi-subtext">น้ำมันเบนซิน ~' + fmtNum(agg.petrolCostPerKm, 2) + ' ฿/km</div>' +
-      '</div>' +
-
-      '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
-        '<div class="kpi-top"><span class="kpi-label">ประหยัดเทียบกับน้ำมัน</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div></div>' +
-        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalSavings, 0) + '</span><span class="kpi-unit">฿</span></div>' +
-        '<div class="kpi-subtext">ประหยัดได้ถึง ~' + (agg.totalDistanceKm > 0 ? fmtNum((agg.totalSavings / (agg.totalDistanceKm * agg.petrolCostPerKm)) * 100, 0) : 0) + '%</div>' +
-      '</div>' +
-    '</div>' +
-
-    '<div class="insight-banner">' +
-      '<div class="insight-content">' +
-        '<div class="insight-icon-bubble"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></div>' +
-        '<div>' +
-          '<div class="insight-title">คำแนะนำการประหยัดพลังงานอัจฉริยะ (EV Smart Insight)</div>' +
-          '<div class="insight-desc">ขนาดแบตเตอรี่ปัจจุบันตั้งไว้ที่ <strong>' + state.batteryCapacity.toFixed(1) + ' kWh</strong> และอัตราค่าไฟ <strong>' + state.unitRate.toFixed(2) + ' ฿/kWh</strong> การชาร์จช่วง Off-Peak สามารถช่วยประหยัดค่าไฟได้สูงสุดถึง 45% เมื่อเทียบกับตู้ชาร์จสาธารณะ DC</div>' +
-        '</div>' +
-      '</div>' +
-      '<button class="btn btn-secondary btn-sm" data-nav="settings">แก้ไขค่าตัวรถ/ค่าไฟ</button>' +
-    '</div>' +
-
-    '<div class="chart-grid">' +
-      '<div class="card">' +
-        '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> แนวโน้มการชาร์จไฟรายเดือน (Monthly Energy kWh)</div><div class="card-subtitle">ปริมาณพลังงานไฟฟ้าที่รับเข้าสู่แบตเตอรี่ในแต่ละเดือน</div></div></div>' +
-        chartSvg +
-      '</div>' +
-
-      '<div class="card">' +
-        '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg> สถานะรถและแบตเตอรี่ปัจจุบัน</div><div class="card-subtitle">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</div></div>' +
-        '<span class="badge badge-teal" style="font-size:11.5px;">อัปเดต ' + (vState.date ? vState.date + ' ' + vState.time : '') + '</span></div>' +
-        '<div style="display:flex;flex-direction:column;gap:14px;padding:8px 0;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-            '<span style="font-size:13px;color:var(--text-muted)">ระดับแบตเตอรี่คงเหลือ (SOC)</span>' +
-            '<strong style="font-family:var(--font-mono);font-size:22px;color:' + (vState.soc <= 20 ? 'var(--rose)' : vState.soc <= 40 ? 'var(--amber)' : 'var(--teal)') + '">' + vState.soc + '%</strong>' +
+    return '<!-- Hero Vehicle Telemetry Card -->' +
+      '<div class="hero-telemetry-card">' +
+        '<div class="hero-top-row">' +
+          '<div class="hero-vehicle-info">' +
+            '<div class="hero-vehicle-title">' +
+              '<span class="v-status-dot-pulse"></span>' +
+              '<span>' + state.vehicleName + '</span>' +
+              '<span class="hero-plate-badge">' + state.vehiclePlate + '</span>' +
+            '</div>' +
+            '<div class="hero-sync-time">' +
+              '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+              'อัปเดตล่าสุด: ' + (vState.date ? vState.date + ' ' + vState.time : 'พร้อมใช้งาน') +
+            '</div>' +
           '</div>' +
-          '<div class="soc-range-bar"><div class="soc-fill" style="width:' + Math.min(100, Math.max(5, vState.soc)) + '%;background:' + (vState.soc <= 20 ? 'var(--rose)' : vState.soc <= 40 ? 'var(--amber)' : 'var(--teal)') + '"></div></div>' +
-          '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-subtle);font-family:var(--font-mono)"><span>0%</span><span>20%</span><span>50%</span><span>80%</span><span>100%</span></div>' +
-          '<div style="background:var(--surface-subtle);border-radius:var(--radius-md);padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">' +
-            '<div><div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">พลังงานคงเหลือในแบต</div><strong style="font-family:var(--font-mono);font-size:17px;color:var(--text-main);">' + vState.remainingKwh.toFixed(1) + ' <span style="font-size:12px;font-weight:400;color:var(--text-muted);">kWh</span></strong></div>' +
-            '<div><div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">ระยะทางวิ่งได้ (WLTP)</div><strong style="font-family:var(--font-mono);font-size:17px;color:var(--emerald);">' + vState.estRangeKm + ' <span style="font-size:12px;font-weight:400;color:var(--text-muted);">km</span></strong></div>' +
+          '<div class="hero-actions">' +
+            '<button class="btn btn-primary btn-sm" data-nav="add-charging">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' +
+              '+ บันทึกชาร์จ' +
+            '</button>' +
+            '<button class="btn btn-secondary btn-sm" data-nav="add-trip">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>' +
+              '+ บันทึกเดินทาง' +
+            '</button>' +
           '</div>' +
         '</div>' +
-      '</div>' +
-    '</div>' +
 
-    '<div class="card">' +
-      '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> รายการชาร์จล่าสุด (Recent Charges)</div><div class="card-subtitle">5 รายการล่าสุดจากระบบ</div></div><button class="btn btn-secondary btn-sm" data-nav="charging-history">ดูทั้งหมด (' + agg.chargeCount + ')</button></div>' +
-      '<div class="table-wrapper">' +
-        '<table class="data-table"><thead><tr><th>วันที่ / เวลา</th><th>ประเภท / สถานี</th><th>SOC เริ่ม → จบ</th><th>พลังงาน (kWh)</th><th>ค่าไฟ (฿)</th><th>เฉลี่ย (฿/kWh)</th><th>จัดการ</th></tr></thead>' +
-        '<tbody>' + recentRowsHtml + '</tbody></table>' +
+        '<div class="hero-body-grid">' +
+          '<div class="hero-soc-card">' +
+            '<div class="hero-soc-header">' +
+              '<span class="hero-stat-label">ระดับแบตเตอรี่คงเหลือ (SOC)</span>' +
+              '<span class="hero-soc-pill" style="color:' + socColor + ';">' + vState.soc + '%</span>' +
+            '</div>' +
+            '<div class="soc-range-bar">' +
+              '<div class="soc-fill" style="width:' + socWidth + '%;background:' + socGradient + ';"></div>' +
+            '</div>' +
+            '<div class="hero-soc-scale">' +
+              '<span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="hero-metrics-row">' +
+            '<div class="hero-stat-box">' +
+              '<div class="hero-stat-icon" style="background:var(--emerald-soft);color:var(--emerald);">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a10 10 0 0 1 10 10"></path><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>' +
+              '</div>' +
+              '<div>' +
+                '<div class="hero-stat-label">ระยะทางวิ่งได้ (WLTP)</div>' +
+                '<div class="hero-stat-val" style="color:var(--emerald);">' + vState.estRangeKm + ' <span class="hero-stat-unit">km</span></div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="hero-stat-box">' +
+              '<div class="hero-stat-icon" style="background:var(--primary-soft);color:var(--primary);">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' +
+              '</div>' +
+              '<div>' +
+                '<div class="hero-stat-label">พลังงานคงเหลือในแบต</div>' +
+                '<div class="hero-stat-val">' + vState.remainingKwh.toFixed(1) + ' <span class="hero-stat-unit">/ ' + state.batteryCapacity.toFixed(1) + ' kWh</span></div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div class="hero-stat-box">' +
+              '<div class="hero-stat-icon" style="background:var(--indigo-soft);color:var(--indigo);">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+              '</div>' +
+              '<div>' +
+                '<div class="hero-stat-label">เลขไมล์รวม (ODO)</div>' +
+                '<div class="hero-stat-val">' + fmtNum(vState.odo || agg.latestOdo, 0) + ' <span class="hero-stat-unit">km</span></div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
-    '</div>';
+
+      '<!-- Headline 6-KPI Metric Grid -->' +
+      '<div class="kpi-section-header">' +
+        '<div class="kpi-section-title">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>' +
+          '<span>สถิติสำคัญและประสิทธิภาพ (Key Performance Indicators)</span>' +
+        '</div>' +
+        '<span class="badge badge-teal" style="font-size:11px;">ข้อมูลรวม ' + agg.chargeCount + ' ชาร์จ • ' + agg.tripCount + ' ทริป</span>' +
+      '</div>' +
+
+      '<div class="kpi-grid">' +
+        '<!-- 1. ระยะทางวิ่งสะสม -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--sky);--kpi-soft:var(--sky-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">ระยะทางวิ่งสะสม</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value">' + fmtNum(agg.totalDistanceKm, 0) + '</span>' +
+            '<span class="kpi-unit">km</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill positive">Odo: ' + fmtNum(vState.odo || agg.latestOdo, 0) + ' km</span>' +
+            '<span class="kpi-subtext">เดินทางสะสม ' + agg.tripCount + ' ทริป</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 2. พลังงานสะสมที่ชาร์จ -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--primary);--kpi-soft:var(--primary-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">พลังงานสะสมที่ชาร์จ</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value">' + fmtNum(agg.totalChargedKwh, 1) + '</span>' +
+            '<span class="kpi-unit">kWh</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill neutral">~' + agg.chargeCycles.toFixed(1) + ' รอบแบตเตอรี่เต็ม</span>' +
+            '<span class="kpi-subtext">ชาร์จรวม ' + agg.chargeCount + ' ครั้ง</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 3. ค่าใช้จ่ายชาร์จรวม -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--indigo);--kpi-soft:var(--indigo-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">ค่าใช้จ่ายชาร์จรวม</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value">' + fmtNum(agg.totalCostThb, 0) + '</span>' +
+            '<span class="kpi-unit">฿</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill neutral">เฉลี่ย ' + (agg.chargeCount > 0 ? fmtNum(agg.totalCostThb / agg.chargeCount, 0) : 0) + ' ฿/ครั้ง</span>' +
+            '<span class="kpi-subtext">ค่าไฟฐาน ' + state.unitRate.toFixed(2) + ' ฿/kWh</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 4. ประสิทธิภาพพลังงาน -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">ประสิทธิภาพพลังงาน</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value">' + fmtNum(agg.efficiencyKmPerKwh, 1) + '</span>' +
+            '<span class="kpi-unit">km/kWh</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill positive">~' + whPerKm + ' Wh/km</span>' +
+            '<span class="kpi-subtext">มาตรฐาน SUV ไฟฟ้า</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 5. ต้นทุนต่อกิโลเมตร -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--sky);--kpi-soft:var(--sky-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">ต้นทุนต่อกิโลเมตร</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value">' + fmtNum(agg.costPerKm, 2) + '</span>' +
+            '<span class="kpi-unit">฿/km</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill positive">▼ ประหยัด ' + costPerKmSavedPct + '%</span>' +
+            '<span class="kpi-subtext">เบนซิน ~' + fmtNum(agg.petrolCostPerKm, 2) + ' ฿/km</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- 6. ประหยัดเทียบกับน้ำมัน -->' +
+        '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
+          '<div class="kpi-top">' +
+            '<span class="kpi-label">ประหยัดเทียบกับน้ำมัน</span>' +
+            '<div class="kpi-icon-pill">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>' +
+            '</div>' +
+          '</div>' +
+          '<div class="kpi-value-box">' +
+            '<span class="kpi-value" style="color:var(--emerald);">' + fmtNum(agg.totalSavings, 0) + '</span>' +
+            '<span class="kpi-unit">฿</span>' +
+          '</div>' +
+          '<div class="kpi-badge-wrap">' +
+            '<span class="kpi-trend-pill positive">ประหยัดได้ถึง ~' + savingsPct + '%</span>' +
+            '<span class="kpi-subtext">เทียบรถเบนซิน 16 km/L</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Analytics Split Grid -->' +
+      '<div class="analytics-split-grid">' +
+        '<!-- Monthly Energy Trend Chart -->' +
+        '<div class="card">' +
+          '<div class="card-header">' +
+            '<div>' +
+              '<div class="card-title">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
+                ' แนวโน้มการชาร์จไฟรายเดือน (Monthly Energy kWh)' +
+              '</div>' +
+              '<div class="card-subtitle">ปริมาณพลังงานไฟฟ้าที่รับเข้าสู่แบตเตอรี่ในแต่ละเดือน</div>' +
+            '</div>' +
+            '<span class="badge badge-sky">' + monthly.length + ' เดือนที่บันทึก</span>' +
+          '</div>' +
+          chartSvg +
+        '</div>' +
+
+        '<!-- AC vs DC Charging Mix & Smart Insight -->' +
+        '<div class="card">' +
+          '<div class="card-header">' +
+            '<div>' +
+              '<div class="card-title">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+                ' สัดส่วนการชาร์จ AC vs DC' +
+              '</div>' +
+              '<div class="card-subtitle">สัดส่วนการชาร์จบ้านและตู้สาธารณะ</div>' +
+            '</div>' +
+            '<button class="btn btn-secondary btn-sm" data-nav="settings">ตั้งค่ารถ/ไฟ</button>' +
+          '</div>' +
+
+          '<div class="charging-mix-box">' +
+            '<div class="charging-mix-bar">' +
+              '<div class="charging-mix-ac" style="width:' + acPct + '%;"></div>' +
+              '<div class="charging-mix-dc" style="width:' + dcPct + '%;"></div>' +
+            '</div>' +
+            '<div class="charging-mix-legend">' +
+              '<div class="mix-legend-item">' +
+                '<span class="mix-dot ac"></span>' +
+                '<div>' +
+                  '<div class="mix-title">AC ชาร์จบ้าน (' + acPct + '%)</div>' +
+                  '<div class="mix-val">' + fmtNum(acKwh, 1) + ' kWh • ' + fmtNum(acCost, 0) + ' ฿</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="mix-legend-item">' +
+                '<span class="mix-dot dc"></span>' +
+                '<div>' +
+                  '<div class="mix-title">DC ตู้ด่วน (' + dcPct + '%)</div>' +
+                  '<div class="mix-val">' + fmtNum(dcKwh, 1) + ' kWh • ' + fmtNum(dcCost, 0) + ' ฿</div>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="smart-advice-box">' +
+            '<div class="smart-advice-icon">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
+            '</div>' +
+            '<div class="smart-advice-text">' +
+              'แบตเตอรี่ <strong>' + state.batteryCapacity.toFixed(1) + ' kWh</strong> • ค่าไฟฐาน <strong>' + state.unitRate.toFixed(2) + ' ฿/kWh</strong> — การชาร์จ AC ช่วง Off-Peak (TOU) ช่วยประหยัดค่าใช้จ่ายได้มากกว่า DC ถึง 40-50%' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Recent Charges Table -->' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<div>' +
+            '<div class="card-title">' +
+              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' +
+              ' รายการชาร์จล่าสุด (Recent Charges)' +
+            '</div>' +
+            '<div class="card-subtitle">5 รายการล่าสุดจาก Google Sheets</div>' +
+          '</div>' +
+          '<button class="btn btn-secondary btn-sm" data-nav="charging-history">ดูทั้งหมด (' + agg.chargeCount + ')</button>' +
+        '</div>' +
+        '<div class="table-wrapper">' +
+          '<table class="data-table"><thead><tr><th>วันที่ / เวลา</th><th>ประเภท / สถานี</th><th>SOC เริ่ม → จบ</th><th>พลังงาน (kWh)</th><th>ค่าไฟ (฿)</th><th>เฉลี่ย (฿/kWh)</th><th>จัดการ</th></tr></thead>' +
+          '<tbody>' + recentRowsHtml + '</tbody></table>' +
+        '</div>' +
+      '</div>';
   }
 
   function renderChargingHistoryView(rows) {
