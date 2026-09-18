@@ -2350,7 +2350,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       ]);
     }
 
-    var csvContent = "\uFEFF" + csvRows.map(function(e) { return e.join(","); }).join("\r\n");
+    var csvContent = String.fromCharCode(0xFEFF) + csvRows.map(function(e) { return e.join(","); }).join(String.fromCharCode(13, 10));
     var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     var link = document.createElement("a");
     var url = URL.createObjectURL(blob);
