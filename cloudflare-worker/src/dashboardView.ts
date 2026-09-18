@@ -10,38 +10,60 @@ export function renderDashboardHtml(
   const initialRate = Number(meta.rate || 4.90).toFixed(2);
 
   return `<!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
 <base target="_top">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>EV Charging Management Dashboard | ระบบบันทึกและวิเคราะห์การชาร์จรถยนต์ไฟฟ้า</title>
+<script>
+  (function() {
+    try {
+      var t = localStorage.getItem("ev_theme") || "light";
+      document.documentElement.setAttribute("data-theme", t);
+    } catch(e) {}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
 <style>
+/* Clean Minimal EV Tech - Sky Blue & Crisp White (Default Light Mode) */
 :root {
+  --theme: light;
   --bg: #F8FAFC;
   --surface: #FFFFFF;
-  --surface-subtle: #F1F5F9;
+  --surface-subtle: #F0F9FF;
+  --surface-card: #FFFFFF;
   --border: #E2E8F0;
   --border-strong: #CBD5E1;
+  --border-focus: #0284C7;
   --text-main: #0F172A;
   --text-muted: #64748B;
   --text-subtle: #94A3B8;
 
-  --teal: #0D9488;
-  --teal-hover: #0F766E;
-  --teal-light: #14B8A6;
-  --teal-soft: #CCFBF1;
-  --teal-pale: #F0FDFA;
+  /* Primary Electric Sky Blue */
+  --primary: #0284C7;
+  --primary-hover: #0369A1;
+  --primary-light: #38BDF8;
+  --primary-soft: #E0F2FE;
+  --primary-pale: #F0F9FF;
+  --primary-border: #BAE6FD;
+  --primary-gradient: linear-gradient(135deg, #0284C7, #0EA5E9);
 
+  /* Unified Aliases for Blue & White theme */
   --sky: #0284C7;
   --sky-hover: #0369A1;
   --sky-light: #38BDF8;
   --sky-soft: #E0F2FE;
   --sky-pale: #F0F9FF;
+  --teal: #0284C7;
+  --teal-hover: #0369A1;
+  --teal-light: #38BDF8;
+  --teal-soft: #E0F2FE;
+  --teal-pale: #F0F9FF;
 
+  /* Accent status colors */
   --emerald: #10B981;
   --emerald-soft: #D1FAE5;
   --amber: #F59E0B;
@@ -55,12 +77,63 @@ export function renderDashboardHtml(
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 14px -2px rgba(15, 23, 42, 0.08);
   --shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.1);
+  --shadow-fab: 0 8px 22px -2px rgba(2, 132, 199, 0.38);
+
   --font-sans: "Anuphan", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --sidebar-w: 260px;
+}
+
+/* Dark Mode - Midnight Obsidian / Slate-950 (No pure #000000) */
+[data-theme="dark"] {
+  --theme: dark;
+  --bg: #0B1329;
+  --surface: #111C44;
+  --surface-subtle: #17234D;
+  --surface-card: #111C44;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --border-focus: #38BDF8;
+  --text-main: #F8FAFC;
+  --text-muted: #94A3B8;
+  --text-subtle: #64748B;
+
+  /* Primary Luminous Sky Blue */
+  --primary: #38BDF8;
+  --primary-hover: #7DD3FC;
+  --primary-light: #BAE6FD;
+  --primary-soft: rgba(56, 189, 248, 0.16);
+  --primary-pale: rgba(56, 189, 248, 0.08);
+  --primary-border: rgba(56, 189, 248, 0.25);
+  --primary-gradient: linear-gradient(135deg, #0284C7, #38BDF8);
+
+  --sky: #38BDF8;
+  --sky-hover: #7DD3FC;
+  --sky-light: #BAE6FD;
+  --sky-soft: rgba(56, 189, 248, 0.16);
+  --sky-pale: rgba(56, 189, 248, 0.08);
+  --teal: #38BDF8;
+  --teal-hover: #7DD3FC;
+  --teal-light: #BAE6FD;
+  --teal-soft: rgba(56, 189, 248, 0.16);
+  --teal-pale: rgba(56, 189, 248, 0.08);
+
+  --emerald: #34D399;
+  --emerald-soft: rgba(52, 211, 153, 0.16);
+  --amber: #FBBF24;
+  --amber-soft: rgba(251, 191, 36, 0.16);
+  --rose: #F87171;
+  --rose-soft: rgba(248, 113, 113, 0.16);
+  --indigo: #818CF8;
+  --indigo-soft: rgba(129, 140, 248, 0.16);
+
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.65);
+  --shadow-fab: 0 8px 24px -2px rgba(56, 189, 248, 0.45);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,9 +144,15 @@ body {
   font-size: 14.5px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   overflow-x: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Smooth Theme Transitions */
+.sidebar, .top-header, .card, .modal-content, .btn, .nav-link, .input-text, .form-control, .mobile-bottom-nav, .sidebar-vehicle-box, .footer-chip, table.data-table th, table.data-table td {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Scrollbar */
@@ -81,12 +160,13 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
 
 /* Layout Shell */
 .app-container {
   display: flex;
   width: 100%;
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Sidebar (Desktop) */
@@ -101,7 +181,7 @@ body {
   bottom: 0;
   left: 0;
   z-index: 40;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .sidebar-header {
@@ -116,12 +196,12 @@ body {
   width: 42px;
   height: 42px;
   border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--teal), var(--sky));
+  background: var(--primary-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
-  box-shadow: 0 4px 10px rgba(13, 148, 136, 0.3);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
   flex-shrink: 0;
 }
 
@@ -976,7 +1056,7 @@ table.data-table tr:hover td {
 .toast.error { border-left-color: var(--rose); }
 .toast.info { border-left-color: var(--sky); }
 
-/* Mobile Bottom Nav */
+/* Mobile Bottom Nav & FAB */
 .mobile-bottom-nav {
   display: none;
   position: fixed;
@@ -987,29 +1067,64 @@ table.data-table tr:hover td {
   background: var(--surface);
   border-top: 1px solid var(--border);
   z-index: 50;
-  padding: 0 8px;
+  padding: 0 6px env(safe-area-inset-bottom, 0px) 6px;
   justify-content: space-around;
   align-items: center;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 -3px 14px rgba(0, 0, 0, 0.06);
 }
 
 .bottom-tab {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 3px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-muted);
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 6px 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  border: none;
+  background: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.bottom-tab:active {
+  transform: scale(0.92);
 }
 
 .bottom-tab.active {
-  color: var(--teal);
+  color: var(--primary);
   font-weight: 700;
+}
+
+.bottom-tab-fab {
+  position: relative;
+  top: -12px;
+  flex: 1.1;
+}
+
+.fab-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-fab);
+  border: 3px solid var(--surface);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bottom-tab-fab:active .fab-circle {
+  transform: scale(0.90);
 }
 
 /* Drawer Backdrop for Mobile Menu */
@@ -1017,25 +1132,40 @@ table.data-table tr:hover td {
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.5);
-  z-index: 39;
+  background: rgba(11, 19, 43, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 55;
+  transition: opacity 0.25s ease;
 }
 
 .drawer-backdrop.show {
   display: block;
 }
 
-/* Responsive Rules */
+/* Dark Mode Overrides for Components */
+[data-theme="dark"] table.data-table tr:hover td { background: #17234D; }
+[data-theme="dark"] .table-wrapper { border-color: rgba(255, 255, 255, 0.09); }
+[data-theme="dark"] .modal-backdrop { background: rgba(5, 10, 24, 0.8); }
+[data-theme="dark"] .soc-range-bar { background: #17234D; }
+[data-theme="dark"] .v-bat-track { background: #17234D; }
+[data-theme="dark"] .insight-banner { background: linear-gradient(135deg, #111C44, #17234D); border-color: rgba(56, 189, 248, 0.25); }
+[data-theme="dark"] .insight-icon-bubble { background: #17234D; color: var(--primary); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
+
+/* Responsive Rules for Tablet & Mobile */
 @media (max-width: 900px) {
   .sidebar {
     transform: translateX(-100%);
+    width: 280px;
+    z-index: 60;
+    box-shadow: var(--shadow-lg);
   }
   .sidebar.open {
     transform: translateX(0);
   }
   .main-wrapper {
     margin-left: 0;
-    padding-bottom: 70px;
+    padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    min-height: 100dvh;
   }
   .btn-mobile-menu {
     display: inline-flex;
@@ -1044,10 +1174,69 @@ table.data-table tr:hover td {
     display: flex;
   }
   .page-content {
-    padding: 16px;
+    padding: 16px 14px;
     gap: 16px;
   }
   .rate-badge {
+    display: none;
+  }
+  .btn-header-action {
+    display: none !important;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .kpi-card {
+    padding: 14px 12px;
+  }
+  .kpi-value {
+    font-size: 20px;
+  }
+  .card {
+    padding: 16px 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding: 12px 10px;
+    gap: 12px;
+  }
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .kpi-card {
+    padding: 12px 10px;
+  }
+  .kpi-label {
+    font-size: 11.5px;
+  }
+  .kpi-value {
+    font-size: 18px;
+  }
+  .kpi-unit {
+    font-size: 11px;
+  }
+  .kpi-subtext {
+    font-size: 10.5px;
+  }
+  .form-control, .input-text, .select-input {
+    font-size: 16px !important; /* Prevents auto zoom in iOS Safari */
+    min-height: 44px;
+  }
+  .btn {
+    min-height: 42px;
+  }
+  .top-header {
+    height: 56px;
+    padding: 0 12px;
+  }
+  .page-title-box h2 {
+    font-size: 15px;
+  }
+  .page-title-box p {
     display: none;
   }
 }
@@ -1276,12 +1465,21 @@ table.data-table tr:hover td {
     </ul>
 
     <div class="sidebar-footer">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0 6px;">
+        <span style="font-size:12px;font-weight:600;color:var(--text-muted);display:flex;align-items:center;gap:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          ธีมระบบ
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnSidebarThemeToggle" style="padding:4px 10px;font-size:11.5px;display:inline-flex;align-items:center;gap:5px;">
+          <span id="sbThemeBtnText">โหมดมืด</span>
+        </button>
+      </div>
       <div class="footer-chip">
-        <span>⚡ ค่าไฟพื้นฐาน</span>
+        <span style="display:flex;align-items:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> ค่าไฟพื้นฐาน</span>
         <strong id="sbRateText">${initialRate} ฿/u</strong>
       </div>
       <div class="footer-chip">
-        <span>🔋 ขนาดแบตเตอรี่</span>
+        <span style="display:flex;align-items:center;gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ขนาดแบตเตอรี่</span>
         <strong id="sbCapText">${initialBatCap} kWh</strong>
       </div>
     </div>
@@ -1303,17 +1501,22 @@ table.data-table tr:hover td {
 
       <div class="header-right">
         <div class="rate-badge">
-          <span>⚡ อัตราค่าไฟ:</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>อัตราค่าไฟ:</span>
           <span id="topRateDisplay">4.90 ฿/kWh</span>
         </div>
+        <button class="btn btn-secondary btn-icon-only" id="btnThemeToggle" title="สลับโหมดมืด/สว่าง">
+          <svg id="themeIconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <svg id="themeIconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
         <button class="btn btn-secondary btn-icon-only" id="btnRefreshData" title="รีเฟรชข้อมูลจาก Google Sheets">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
         </button>
-        <button class="btn btn-secondary btn-sm" data-nav="add-trip" style="display:inline-flex;align-items:center;gap:5px;">
+        <button class="btn btn-secondary btn-sm btn-header-action" data-nav="add-trip" style="display:inline-flex;align-items:center;gap:5px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
           + บันทึกการเดินทาง
         </button>
-        <button class="btn btn-primary btn-sm" data-nav="add-charging" style="display:inline-flex;align-items:center;gap:5px;">
+        <button class="btn btn-primary btn-sm btn-header-action" data-nav="add-charging" style="display:inline-flex;align-items:center;gap:5px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
           + บันทึกการชาร์จ
         </button>
@@ -1331,23 +1534,25 @@ table.data-table tr:hover td {
 <nav class="mobile-bottom-nav">
   <div class="bottom-tab" data-nav="dashboard">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-    ภาพรวม
+    <span>ภาพรวม</span>
   </div>
   <div class="bottom-tab" data-nav="charging-history">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-    ประวัติชาร์จ
+    <span>ประวัติชาร์จ</span>
   </div>
-  <div class="bottom-tab" data-nav="add-charging" style="color:var(--teal)">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-    + บันทึก
+  <div class="bottom-tab bottom-tab-fab" data-nav="add-charging">
+    <div class="fab-circle">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+    </div>
+    <span>+ ชาร์จ</span>
   </div>
   <div class="bottom-tab" data-nav="trips">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
-    การเดินทาง
+    <span>เดินทาง</span>
   </div>
-  <div class="bottom-tab" data-nav="settings">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-    ตั้งค่า
+  <div class="bottom-tab" id="btnBottomMenu">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    <span>เมนู</span>
   </div>
 </nav>
 
@@ -1383,8 +1588,50 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     deleteRecord: null,
     reportSection: "charging",
     reportChargePeriod: "monthly",
-    reportTripPeriod: "monthly"
+    reportTripPeriod: "monthly",
+    theme: (function() {
+      try {
+        return localStorage.getItem("ev_theme") || "light";
+      } catch(e) {
+        return "light";
+      }
+    })()
   };
+
+  function updateThemeUI(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    var sun = document.getElementById("themeIconSun");
+    var moon = document.getElementById("themeIconMoon");
+    var sbText = document.getElementById("sbThemeBtnText");
+    if (sun && moon) {
+      if (t === "dark") {
+        sun.style.display = "block";
+        moon.style.display = "none";
+      } else {
+        sun.style.display = "none";
+        moon.style.display = "block";
+      }
+    }
+    if (sbText) {
+      sbText.innerText = t === "dark" ? "โหมดสว่าง" : "โหมดมืด";
+    }
+  }
+
+  function setTheme(t) {
+    state.theme = t;
+    try {
+      localStorage.setItem("ev_theme", t);
+    } catch(e) {}
+    updateThemeUI(t);
+    showToast("เปลี่ยนเป็น " + (t === "dark" ? "โหมดมืด (Dark Mode)" : "โหมดสว่าง (Light Mode)") + " แล้ว", "info");
+  }
+
+  function toggleTheme() {
+    var cur = state.theme || document.documentElement.getAttribute("data-theme") || "light";
+    var next = cur === "dark" ? "light" : "dark";
+    setTheme(next);
+    renderView();
+  }
 
   function fmtNum(n, d) {
     if (d === undefined) d = 2;
@@ -1648,16 +1895,16 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var x = 30 + i * (barW + gap);
         var y = chartH - h - 20;
         return '<g class="bar-group">' +
-          '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" rx="6" fill="url(#tealGradient)" />' +
-          '<text x="' + (x + barW/2) + '" y="' + (y - 6) + '" font-size="11" font-family="JetBrains Mono" fill="#0D9488" text-anchor="middle" font-weight="600">' + m.kwh.toFixed(0) + '</text>' +
-          '<text x="' + (x + barW/2) + '" y="' + chartH + '" font-size="10.5" font-family="Anuphan" fill="#64748B" text-anchor="middle">' + m.month.substring(5) + '/' + m.month.substring(2,4) + '</text>' +
+          '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" rx="6" fill="url(#skyGradient)" />' +
+          '<text x="' + (x + barW/2) + '" y="' + (y - 6) + '" font-size="11" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="600">' + m.kwh.toFixed(0) + '</text>' +
+          '<text x="' + (x + barW/2) + '" y="' + chartH + '" font-size="10.5" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle">' + m.month.substring(5) + '/' + m.month.substring(2,4) + '</text>' +
           '</g>';
       }).join("");
 
       chartSvg = '<div style="overflow-x:auto;padding-bottom:8px;">' +
         '<svg width="' + totalW + '" height="' + (chartH + 10) + '" viewBox="0 0 ' + totalW + ' ' + (chartH + 10) + '">' +
-        '<defs><linearGradient id="tealGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#14B8A6" /><stop offset="100%" stop-color="#0D9488" /></linearGradient></defs>' +
-        '<line x1="20" y1="' + (chartH - 20) + '" x2="' + (totalW - 20) + '" y2="' + (chartH - 20) + '" stroke="#E2E8F0" stroke-width="1" />' +
+        '<defs><linearGradient id="skyGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38BDF8" /><stop offset="100%" stop-color="#0284C7" /></linearGradient></defs>' +
+        '<line x1="20" y1="' + (chartH - 20) + '" x2="' + (totalW - 20) + '" y2="' + (chartH - 20) + '" stroke="var(--border)" stroke-width="1" />' +
         bars +
         '</svg></div>';
     }
@@ -2709,7 +2956,21 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       '<div class="card-header"><div><div class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> ตั้งค่าระบบ (System Configuration)</div><div class="card-subtitle">แก้ไขความจุแบตเตอรี่รถและอัตราค่าไฟฟ้าพื้นฐาน ซึ่งจะนำไปคำนวณในแดชบอร์ดและฟอร์มทั้งหมดทันที</div></div></div>' +
       '<form id="formSettings" style="display:flex;flex-direction:column;gap:24px;">' +
         '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
-          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;">⚡ กำหนดค่าอัตราค่าไฟฟ้าพื้นฐาน (Electricity Unit Rates)</h4>' +
+          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg> ธีมการแสดงผล (Display Theme)</h4>' +
+          '<div style="display:flex;gap:12px;flex-wrap:wrap;">' +
+            '<button type="button" class="btn ' + (state.theme === 'light' ? 'btn-primary' : 'btn-secondary') + '" id="btnSetThemeLight" style="display:inline-flex;align-items:center;gap:8px;">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>' +
+              'โหมดสว่าง (Light Mode - ค่าเริ่มต้น)' +
+            '</button>' +
+            '<button type="button" class="btn ' + (state.theme === 'dark' ? 'btn-primary' : 'btn-secondary') + '" id="btnSetThemeDark" style="display:inline-flex;align-items:center;gap:8px;">' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>' +
+              'โหมดมืด (Dark Mode)' +
+            '</button>' +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">ธีมสีฟ้า ขาว สไตล์ Clean Minimal EV Tech และโทน Midnight Obsidian สบายตาสำหรับเวลากลางคืน</div>' +
+        '</div>' +
+        '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
+          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> กำหนดค่าอัตราค่าไฟฟ้าพื้นฐาน (Electricity Unit Rates)</h4>' +
           '<div class="form-grid">' +
             '<div class="form-group"><label>อัตราค่าไฟฟ้าปกติ / พื้นฐาน (฿/kWh)</label><input type="number" step="0.01" class="form-control mono" id="cfgUnitRate" value="' + state.unitRate + '" required><span class="form-hint">ใช้เป็นอัตราอ้างอิงในการคำนวณค่าไฟต่อหน่วย (Default: 4.90 หรือ 4.20)</span></div>' +
             '<div class="form-group"><label>อัตราช่วง On-Peak (฿/kWh)</label><input type="number" step="0.01" class="form-control mono" id="cfgRateOnPeak" value="' + state.rateOnPeak + '"><span class="form-hint">เช่น อัตราค่าไฟ TOU ช่วง 09:00 - 22:00 น.</span></div>' +
@@ -2717,7 +2978,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '</div>' +
         '</div>' +
         '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
-          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;">🔋 ตั้งค่าความจุแบตเตอรี่และข้อมูลรถยนต์ (Battery Capacity & Vehicle)</h4>' +
+          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ตั้งค่าความจุแบตเตอรี่และข้อมูลรถยนต์ (Battery Capacity & Vehicle)</h4>' +
           '<div class="form-grid">' +
             '<div class="form-group"><label>ชื่อรุ่นรถยนต์ (Vehicle Model)</label><input type="text" class="form-control" id="cfgVehicleName" value="' + state.vehicleName + '" required></div>' +
             '<div class="form-group"><label>ความจุแบตเตอรี่ (kWh) *แก้ไขได้ตลอดเวลา</label><input type="number" step="0.1" class="form-control mono" id="cfgBatteryCapacity" value="' + state.batteryCapacity + '" required><span class="form-hint">ใช้คำนวณ SOC% และพลังงานเข้าสู่แบตเตอรี่ (เช่น 68.5, 60.4, 82.5)</span></div>' +
@@ -2737,7 +2998,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '</div>' +
         '</div>' +
         '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
-          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;">⛽ ค่าเปรียบเทียบน้ำมันเบนซิน (Petrol Benchmark for Savings)</h4>' +
+          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> ค่าเปรียบเทียบน้ำมันเบนซิน (Petrol Benchmark for Savings)</h4>' +
           '<div class="form-grid">' +
             '<div class="form-group"><label>ราคาน้ำมันเบนซินอ้างอิง (฿/ลิตร)</label><input type="number" step="0.1" class="form-control mono" id="cfgPetrolRate" value="' + state.petrolRate + '"></div>' +
             '<div class="form-group"><label>อัตราสิ้นเปลืองรถน้ำมัน (กิโลเมตร/ลิตร)</label><input type="number" step="0.5" class="form-control mono" id="cfgPetrolKmL" value="' + state.petrolKmPerL + '"></div>' +
@@ -3037,6 +3298,21 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         renderView();
       };
 
+      var btnSetLight = document.getElementById("btnSetThemeLight");
+      if (btnSetLight) {
+        btnSetLight.onclick = function() {
+          setTheme("light");
+          renderView();
+        };
+      }
+      var btnSetDark = document.getElementById("btnSetThemeDark");
+      if (btnSetDark) {
+        btnSetDark.onclick = function() {
+          setTheme("dark");
+          renderView();
+        };
+      }
+
       var btnReset = document.getElementById("btnResetSettings");
       if (btnReset) {
         btnReset.onclick = function() {
@@ -3306,19 +3582,39 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   });
 
   var btnMobileMenu = document.getElementById("btnOpenMobileMenu");
+  var btnBottomMenu = document.getElementById("btnBottomMenu");
   var sidebar = document.getElementById("appSidebar");
   var drawerBackdrop = document.getElementById("drawerBackdrop");
 
-  if (btnMobileMenu && sidebar && drawerBackdrop) {
-    btnMobileMenu.onclick = function() {
+  function openDrawer() {
+    if (sidebar && drawerBackdrop) {
       sidebar.classList.add("open");
       drawerBackdrop.classList.add("show");
-    };
-    drawerBackdrop.onclick = function() {
+    }
+  }
+
+  function closeDrawer() {
+    if (sidebar && drawerBackdrop) {
       sidebar.classList.remove("open");
       drawerBackdrop.classList.remove("show");
-    };
+    }
   }
+
+  if (btnMobileMenu) btnMobileMenu.onclick = openDrawer;
+  if (btnBottomMenu) btnBottomMenu.onclick = openDrawer;
+  if (drawerBackdrop) drawerBackdrop.onclick = closeDrawer;
+
+  document.addEventListener("click", function(e) {
+    if (e.target.closest(".nav-link") && window.innerWidth <= 900) {
+      closeDrawer();
+    }
+  });
+
+  var btnTheme = document.getElementById("btnThemeToggle");
+  if (btnTheme) btnTheme.onclick = toggleTheme;
+
+  var btnSbTheme = document.getElementById("btnSidebarThemeToggle");
+  if (btnSbTheme) btnSbTheme.onclick = toggleTheme;
 
   window.onpopstate = function() {
     var p = window.location.pathname.startsWith("/") ? window.location.pathname.substring(1) : window.location.pathname;
@@ -3326,6 +3622,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     renderView();
   };
 
+  updateThemeUI(state.theme);
   renderView();
 })();
 </script>
