@@ -1406,11 +1406,49 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     }, 3500);
   }
 
+  function getLatestVehicleState(rows) {
+    var latestSoc = 80;
+    var latestOdo = 0;
+    var latestDate = "";
+    var latestTime = "";
+    var foundSoc = false;
+
+    // Check rows in reverse chronological order
+    for (var i = rows.length - 1; i >= 0; i--) {
+      var r = rows[i];
+      if (!foundSoc && r.s1 !== null && r.s1 !== undefined && r.s1 > 0) {
+        latestSoc = r.s1;
+        latestDate = r.iso || "";
+        latestTime = r.time || "";
+        foundSoc = true;
+      }
+      if (r.odoEnd && r.odoEnd > latestOdo) {
+        latestOdo = r.odoEnd;
+      }
+    }
+
+    // Full WLTP range of XPENG G6 Standard Range is 470 km
+    // At 71%: 470 * 0.71 = 333.7 km ≈ 333 km (matches user car display)
+    var fullWltpKm = 470;
+    var estRangeKm = Math.round((latestSoc / 100) * fullWltpKm);
+    var remainingKwh = (latestSoc / 100) * state.batteryCapacity;
+
+    return {
+      soc: latestSoc,
+      odo: latestOdo,
+      date: latestDate,
+      time: latestTime,
+      remainingKwh: remainingKwh,
+      estRangeKm: estRangeKm,
+      fullWltpKm: fullWltpKm
+    };
+  }
+
   function updateSidebarVehicle() {
     var rows = (state.payload.data && state.payload.data.rows) || [];
+    var vState = getLatestVehicleState(rows);
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
-    var lastCharge = chargeRows.length > 0 ? chargeRows[chargeRows.length - 1] : null;
-    var currentSoc = lastCharge ? (lastCharge.s1 || 80) : 80;
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
 
     var sbName = document.getElementById("sbVehicleName");
     var sbPlate = document.getElementById("sbVehiclePlate");
@@ -1422,12 +1460,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var topRateDisplay = document.getElementById("topRateDisplay");
     var badgeChargeCount = document.getElementById("badgeChargeCount");
     var badgeTripCount = document.getElementById("badgeTripCount");
-    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
 
     if (sbName) sbName.innerHTML = '<span class="v-status-dot"></span> ' + state.vehicleName;
     if (sbPlate) sbPlate.innerText = state.vehiclePlate;
-    if (sbFill) sbFill.style.width = Math.min(100, Math.max(5, currentSoc)) + "%";
-    if (sbText) sbText.innerText = "SOC ล่าสุด: " + currentSoc + "%";
+    if (sbFill) sbFill.style.width = Math.min(100, Math.max(5, vState.soc)) + "%";
+    if (sbText) sbText.innerText = "แบตเตอรี่: " + vState.soc + "% (~" + vState.estRangeKm + " km)";
     if (sbBatCapText) sbBatCapText.innerText = state.batteryCapacity.toFixed(1) + " kWh";
     if (sbCapText) sbCapText.innerText = state.batteryCapacity.toFixed(1) + " kWh";
     if (sbRateText) sbRateText.innerText = state.unitRate.toFixed(2) + " ฿/u";
@@ -1593,6 +1630,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function renderDashboardView(agg, rows) {
+    var vState = getLatestVehicleState(rows);
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
     var recentCharges = chargeRows.slice(-5).reverse();
     var monthly = computeMonthlyData();
@@ -1655,7 +1693,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
         '<div class="kpi-top"><span class="kpi-label">ระยะทางวิ่งสะสม</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div></div>' +
         '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalDistanceKm, 0) + '</span><span class="kpi-unit">km</span></div>' +
-        '<div class="kpi-subtext">Odometer ล่าสุด: ' + fmtNum(agg.latestOdo, 0) + ' km</div>' +
+        '<div class="kpi-subtext">Odometer ล่าสุด: ' + fmtNum(vState.odo || agg.latestOdo, 0) + ' km</div>' +
       '</div>' +
 
       '<div class="kpi-card" style="--kpi-accent:var(--indigo);--kpi-soft:var(--indigo-soft)">' +
@@ -1695,14 +1733,18 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       '</div>' +
 
       '<div class="card">' +
-        '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg> สถานะรถและแบตเตอรี่</div><div class="card-subtitle">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</div></div></div>' +
+        '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sky)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a10 10 0 0 1 10 10"></path></svg> สถานะรถและแบตเตอรี่ปัจจุบัน</div><div class="card-subtitle">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</div></div>' +
+        '<span class="badge badge-teal" style="font-size:11.5px;">อัปเดต ' + (vState.date ? vState.date + ' ' + vState.time : '') + '</span></div>' +
         '<div style="display:flex;flex-direction:column;gap:14px;padding:8px 0;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:var(--text-muted)">ระดับแบตเตอรี่เป้าหมาย</span><strong style="font-family:var(--font-mono);color:var(--teal)">80% (แนะนำเพื่อถนอมแบต)</strong></div>' +
-          '<div class="soc-range-bar"><div class="soc-fill" style="width: 80%;"></div></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<span style="font-size:13px;color:var(--text-muted)">ระดับแบตเตอรี่คงเหลือ (SOC)</span>' +
+            '<strong style="font-family:var(--font-mono);font-size:22px;color:' + (vState.soc <= 20 ? 'var(--rose)' : vState.soc <= 40 ? 'var(--amber)' : 'var(--teal)') + '">' + vState.soc + '%</strong>' +
+          '</div>' +
+          '<div class="soc-range-bar"><div class="soc-fill" style="width:' + Math.min(100, Math.max(5, vState.soc)) + '%;background:' + (vState.soc <= 20 ? 'var(--rose)' : vState.soc <= 40 ? 'var(--amber)' : 'var(--teal)') + '"></div></div>' +
           '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-subtle);font-family:var(--font-mono)"><span>0%</span><span>20%</span><span>50%</span><span>80%</span><span>100%</span></div>' +
-          '<div style="background:var(--surface-subtle);border-radius:var(--radius-md);padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">' +
-            '<div><div style="font-size:11px;color:var(--text-muted)">พลังงานคงเหลือ ~</div><strong style="font-family:var(--font-mono);font-size:15px;">' + (state.batteryCapacity * 0.8).toFixed(1) + ' kWh</strong></div>' +
-            '<div><div style="font-size:11px;color:var(--text-muted)">ระยะทางวิ่งได้ ~</div><strong style="font-family:var(--font-mono);font-size:15px;color:var(--emerald);">' + ((state.batteryCapacity * 0.8) * (agg.efficiencyKmPerKwh || 6.5)).toFixed(0) + ' km</strong></div>' +
+          '<div style="background:var(--surface-subtle);border-radius:var(--radius-md);padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;">' +
+            '<div><div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">พลังงานคงเหลือในแบต</div><strong style="font-family:var(--font-mono);font-size:17px;color:var(--text-main);">' + vState.remainingKwh.toFixed(1) + ' <span style="font-size:12px;font-weight:400;color:var(--text-muted);">kWh</span></strong></div>' +
+            '<div><div style="font-size:11.5px;color:var(--text-muted);margin-bottom:2px;">ระยะทางวิ่งได้ (WLTP)</div><strong style="font-family:var(--font-mono);font-size:17px;color:var(--emerald);">' + vState.estRangeKm + ' <span style="font-size:12px;font-weight:400;color:var(--text-muted);">km</span></strong></div>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -1906,6 +1948,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function renderVehiclesView(agg) {
+    var rows = (state.payload.data && state.payload.data.rows) || [];
+    var vState = getLatestVehicleState(rows);
+
     return '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;">' +
       '<div class="card" style="border-top:4px solid var(--teal);">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
@@ -1913,8 +1958,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '<div style="width:48px;height:48px;border-radius:var(--radius-md);background:var(--teal-soft);display:flex;align-items:center;justify-content:center;color:var(--teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></div>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;background:var(--surface-subtle);padding:14px;border-radius:var(--radius-md);">' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">ความจุแบตเตอรี่ (Battery)</div><strong style="font-family:var(--font-mono);font-size:16px;color:var(--teal);">' + state.batteryCapacity.toFixed(1) + ' kWh</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">รองรับกำลังชาร์จ DC</div><strong style="font-family:var(--font-mono);font-size:16px;">สูงสุด ~280 kW</strong></div>' +
+          '<div><div style="font-size:11.5px;color:var(--text-muted)">ระดับแบตเตอรี่คงเหลือ</div><strong style="font-family:var(--font-mono);font-size:16px;color:var(--teal);">' + vState.soc + '% (' + vState.remainingKwh.toFixed(1) + ' kWh)</strong></div>' +
+          '<div><div style="font-size:11.5px;color:var(--text-muted)">ระยะทางวิ่งได้ (WLTP)</div><strong style="font-family:var(--font-mono);font-size:16px;color:var(--emerald);">' + vState.estRangeKm + ' km</strong></div>' +
+          '<div><div style="font-size:11.5px;color:var(--text-muted)">ความจุแบตเตอรี่</div><strong style="font-family:var(--font-mono);font-size:16px;">' + state.batteryCapacity.toFixed(1) + ' kWh</strong></div>' +
+          '<div><div style="font-size:11.5px;color:var(--text-muted)">เลขไมล์ล่าสุด (Odometer)</div><strong style="font-family:var(--font-mono);font-size:16px;">' + fmtNum(vState.odo || agg.latestOdo, 0) + ' km</strong></div>' +
           '<div><div style="font-size:11.5px;color:var(--text-muted)">ระยะทางวิ่งสะสม</div><strong style="font-family:var(--font-mono);font-size:16px;">' + fmtNum(agg.totalDistanceKm, 0) + ' km</strong></div>' +
           '<div><div style="font-size:11.5px;color:var(--text-muted)">รอบการชาร์จสะสม</div><strong style="font-family:var(--font-mono);font-size:16px;">~' + agg.chargeCycles.toFixed(1) + ' Cycles</strong></div>' +
         '</div>' +
