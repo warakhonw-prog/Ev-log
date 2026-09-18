@@ -707,6 +707,129 @@ table.data-table tr:hover td {
   box-shadow: 0 0 0 2px var(--teal-soft);
 }
 
+/* Report Sub-Tabs & Period Selectors */
+.report-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 18px;
+  overflow-x: auto;
+}
+.report-tab-btn {
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.report-tab-btn:hover {
+  color: var(--text-main);
+}
+.report-tab-btn.active {
+  color: var(--teal);
+  border-bottom-color: var(--teal);
+}
+.report-pill-group {
+  display: inline-flex;
+  background: var(--surface-subtle);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 4px;
+}
+.report-pill {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.report-pill:hover {
+  color: var(--text-main);
+}
+.report-pill.active {
+  background: var(--surface);
+  color: var(--teal);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.report-kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.report-kpi-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.report-kpi-val {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.report-kpi-sub {
+  font-size: 11.5px;
+  color: var(--text-subtle);
+  margin-top: 4px;
+}
+@media print {
+  body {
+    background: #fff !important;
+  }
+  .sidebar, .top-header, .mobile-bottom-nav, .report-tabs, .report-pill-group, .btn-mobile-menu, #btnRefreshData, #btnExportReportCsv, .btn-print-hide {
+    display: none !important;
+  }
+  .main-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .page-content {
+    padding: 0 !important;
+  }
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .table-wrapper {
+    overflow: visible !important;
+    border: 1px solid #ddd !important;
+  }
+  table.data-table {
+    font-size: 10px !important;
+  }
+  table.data-table th, table.data-table td {
+    padding: 6px 8px !important;
+  }
+}
+
 /* Forms */
 .form-grid {
   display: grid;
@@ -926,6 +1049,115 @@ table.data-table tr:hover td {
   }
   .rate-badge {
     display: none;
+  }
+}
+
+/* Reports & Analytics View Styles */
+.report-section-nav {
+  display: flex;
+  gap: 10px;
+  background: var(--surface-subtle);
+  padding: 6px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.report-section-btn {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.report-section-btn.active {
+  background: var(--surface);
+  color: var(--teal);
+  box-shadow: var(--shadow-sm);
+}
+
+.report-period-pills {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--surface-subtle);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.report-pill-btn {
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.report-pill-btn.active {
+  background: var(--teal);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.report-table th {
+  text-align: center;
+  font-size: 12px;
+}
+
+.report-table td {
+  font-size: 12.5px;
+}
+
+.report-table tfoot td {
+  background: var(--surface-subtle);
+  font-weight: 700;
+  border-top: 2px solid var(--border-strong);
+}
+
+.ratio-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--border);
+  margin-top: 4px;
+}
+
+.ratio-bar-ac {
+  background: var(--teal);
+}
+
+.ratio-bar-dc {
+  background: var(--sky);
+}
+
+@media print {
+  .sidebar, .mobile-bottom-nav, .top-nav, .report-section-nav, .report-period-pills, .btn, .card-header .btn {
+    display: none !important;
+  }
+  .main-wrapper {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
   }
 }
 </style>
@@ -1148,7 +1380,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     filterStation: "all",
     filterSearch: "",
     editRecord: null,
-    deleteRecord: null
+    deleteRecord: null,
+    reportSection: "charging",
+    reportChargePeriod: "monthly",
+    reportTripPeriod: "monthly"
   };
 
   function fmtNum(n, d) {
@@ -1751,21 +1986,647 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
+  var thaiMonthNamesShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  var thaiMonthNamesFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+  function formatThaiDate(iso) {
+    if (!iso || iso.length < 10) return iso || "-";
+    var p = iso.split("-");
+    var y = parseInt(p[0], 10) + 543;
+    var m = parseInt(p[1], 10) - 1;
+    var d = parseInt(p[2], 10);
+    return d + " " + (thaiMonthNamesShort[m] || p[1]) + " " + y;
+  }
+
+  function formatThaiMonth(ym) {
+    if (!ym || ym.length < 7) return ym || "-";
+    var p = ym.split("-");
+    var y = parseInt(p[0], 10) + 543;
+    var m = parseInt(p[1], 10) - 1;
+    return (thaiMonthNamesFull[m] || p[1]) + " " + y;
+  }
+
+  function formatThaiYear(y) {
+    if (!y) return "-";
+    var yr = parseInt(y, 10);
+    return isNaN(yr) ? y : (yr + 543) + " (" + y + ")";
+  }
+
+  function isDcChargeRecord(r) {
+    var text = ((r.note || "") + " " + (r.kind || "")).toLowerCase();
+    return text.includes("dc") || text.includes("เร็ว") || text.includes("fast") ||
+           text.includes("pea") || text.includes("ptt") || text.includes("ea ") ||
+           text.includes("station") || text.includes("charge+");
+  }
+
+  function computeMonthlyChargeSummary(rows) {
+    var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
+    var map = {};
+    chargeRows.forEach(function(r) {
+      var ym = (r.iso || "").substring(0, 7) || "Unknown";
+      if (!map[ym]) {
+        map[ym] = {
+          period: ym,
+          acCount: 0, acKwh: 0, acCost: 0,
+          dcCount: 0, dcKwh: 0, dcCost: 0
+        };
+      }
+      var isDc = isDcChargeRecord(r);
+      if (isDc) {
+        map[ym].dcCount += 1;
+        map[ym].dcKwh += (r.kwh || 0);
+        map[ym].dcCost += (r.net || 0);
+      } else {
+        map[ym].acCount += 1;
+        map[ym].acKwh += (r.kwh || 0);
+        map[ym].acCost += (r.net || 0);
+      }
+    });
+
+    var keys = Object.keys(map).sort().reverse();
+    return keys.map(function(k) {
+      var m = map[k];
+      var totCount = m.acCount + m.dcCount;
+      var totKwh = m.acKwh + m.dcKwh;
+      var totCost = m.acCost + m.dcCost;
+      return {
+        period: k,
+        label: formatThaiMonth(k),
+        acCount: m.acCount,
+        acKwh: m.acKwh,
+        acCost: m.acCost,
+        acRate: m.acKwh > 0 ? (m.acCost / m.acKwh) : 0,
+        dcCount: m.dcCount,
+        dcKwh: m.dcKwh,
+        dcCost: m.dcCost,
+        dcRate: m.dcKwh > 0 ? (m.dcCost / m.dcKwh) : 0,
+        totCount: totCount,
+        totKwh: totKwh,
+        totCost: totCost,
+        totRate: totKwh > 0 ? (totCost / totKwh) : 0,
+        acPct: totKwh > 0 ? (m.acKwh / totKwh * 100) : 0,
+        dcPct: totKwh > 0 ? (m.dcKwh / totKwh * 100) : 0
+      };
+    });
+  }
+
+  function computeYearlyChargeSummary(rows) {
+    var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
+    var map = {};
+    chargeRows.forEach(function(r) {
+      var y = (r.iso || "").substring(0, 4) || "Unknown";
+      if (!map[y]) {
+        map[y] = {
+          period: y,
+          acCount: 0, acKwh: 0, acCost: 0,
+          dcCount: 0, dcKwh: 0, dcCost: 0
+        };
+      }
+      var isDc = isDcChargeRecord(r);
+      if (isDc) {
+        map[y].dcCount += 1;
+        map[y].dcKwh += (r.kwh || 0);
+        map[y].dcCost += (r.net || 0);
+      } else {
+        map[y].acCount += 1;
+        map[y].acKwh += (r.kwh || 0);
+        map[y].acCost += (r.net || 0);
+      }
+    });
+
+    var keys = Object.keys(map).sort().reverse();
+    return keys.map(function(k) {
+      var m = map[k];
+      var totCount = m.acCount + m.dcCount;
+      var totKwh = m.acKwh + m.dcKwh;
+      var totCost = m.acCost + m.dcCost;
+      return {
+        period: k,
+        label: formatThaiYear(k),
+        acCount: m.acCount,
+        acKwh: m.acKwh,
+        acCost: m.acCost,
+        acRate: m.acKwh > 0 ? (m.acCost / m.acKwh) : 0,
+        dcCount: m.dcCount,
+        dcKwh: m.dcKwh,
+        dcCost: m.dcCost,
+        dcRate: m.dcKwh > 0 ? (m.dcCost / m.dcKwh) : 0,
+        totCount: totCount,
+        totKwh: totKwh,
+        totCost: totCost,
+        totRate: totKwh > 0 ? (totCost / totKwh) : 0,
+        acPct: totKwh > 0 ? (m.acKwh / totKwh * 100) : 0,
+        dcPct: totKwh > 0 ? (m.dcKwh / totKwh * 100) : 0
+      };
+    });
+  }
+
+  function computeDailyTripSummary(rows) {
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
+    var map = {};
+    var petrolRate = state.petrolRate || 38.5;
+    var petrolKmPerL = state.petrolKmPerL || 16.0;
+
+    tripRows.forEach(function(r) {
+      var d = r.iso || "Unknown";
+      if (!map[d]) {
+        map[d] = {
+          period: d,
+          trips: 0,
+          km: 0,
+          mins: 0,
+          kwh: 0,
+          cost: 0
+        };
+      }
+      map[d].trips += 1;
+      map[d].km += (r.km || 0);
+      map[d].mins += (r.mins || 0);
+      map[d].kwh += (r.kwh || 0);
+      map[d].cost += (r.net || 0);
+    });
+
+    var keys = Object.keys(map).sort().reverse();
+    return keys.map(function(k) {
+      var d = map[k];
+      var whKm = d.km > 0 && d.kwh > 0 ? (d.kwh * 1000 / d.km) : 0;
+      var costKm = d.km > 0 && d.cost > 0 ? (d.cost / d.km) : 0;
+      var petrolCost = d.km * (petrolRate / petrolKmPerL);
+      var savings = Math.max(0, petrolCost - d.cost);
+      return {
+        period: k,
+        label: formatThaiDate(k),
+        trips: d.trips,
+        km: d.km,
+        mins: d.mins,
+        kwh: d.kwh,
+        cost: d.cost,
+        whKm: whKm,
+        costKm: costKm,
+        petrolCost: petrolCost,
+        savings: savings
+      };
+    });
+  }
+
+  function computeMonthlyTripSummary(rows) {
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
+    var map = {};
+    var petrolRate = state.petrolRate || 38.5;
+    var petrolKmPerL = state.petrolKmPerL || 16.0;
+
+    tripRows.forEach(function(r) {
+      var ym = (r.iso || "").substring(0, 7) || "Unknown";
+      if (!map[ym]) {
+        map[ym] = {
+          period: ym,
+          trips: 0,
+          km: 0,
+          mins: 0,
+          kwh: 0,
+          cost: 0
+        };
+      }
+      map[ym].trips += 1;
+      map[ym].km += (r.km || 0);
+      map[ym].mins += (r.mins || 0);
+      map[ym].kwh += (r.kwh || 0);
+      map[ym].cost += (r.net || 0);
+    });
+
+    var keys = Object.keys(map).sort().reverse();
+    return keys.map(function(k) {
+      var d = map[k];
+      var whKm = d.km > 0 && d.kwh > 0 ? (d.kwh * 1000 / d.km) : 0;
+      var costKm = d.km > 0 && d.cost > 0 ? (d.cost / d.km) : 0;
+      var petrolCost = d.km * (petrolRate / petrolKmPerL);
+      var savings = Math.max(0, petrolCost - d.cost);
+      return {
+        period: k,
+        label: formatThaiMonth(k),
+        trips: d.trips,
+        km: d.km,
+        mins: d.mins,
+        kwh: d.kwh,
+        cost: d.cost,
+        whKm: whKm,
+        costKm: costKm,
+        petrolCost: petrolCost,
+        savings: savings
+      };
+    });
+  }
+
+  function computeYearlyTripSummary(rows) {
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
+    var map = {};
+    var petrolRate = state.petrolRate || 38.5;
+    var petrolKmPerL = state.petrolKmPerL || 16.0;
+
+    tripRows.forEach(function(r) {
+      var y = (r.iso || "").substring(0, 4) || "Unknown";
+      if (!map[y]) {
+        map[y] = {
+          period: y,
+          trips: 0,
+          km: 0,
+          mins: 0,
+          kwh: 0,
+          cost: 0
+        };
+      }
+      map[y].trips += 1;
+      map[y].km += (r.km || 0);
+      map[y].mins += (r.mins || 0);
+      map[y].kwh += (r.kwh || 0);
+      map[y].cost += (r.net || 0);
+    });
+
+    var keys = Object.keys(map).sort().reverse();
+    return keys.map(function(k) {
+      var d = map[k];
+      var whKm = d.km > 0 && d.kwh > 0 ? (d.kwh * 1000 / d.km) : 0;
+      var costKm = d.km > 0 && d.cost > 0 ? (d.cost / d.km) : 0;
+      var petrolCost = d.km * (petrolRate / petrolKmPerL);
+      var savings = Math.max(0, petrolCost - d.cost);
+      return {
+        period: k,
+        label: formatThaiYear(k),
+        trips: d.trips,
+        km: d.km,
+        mins: d.mins,
+        kwh: d.kwh,
+        cost: d.cost,
+        whKm: whKm,
+        costKm: costKm,
+        petrolCost: petrolCost,
+        savings: savings
+      };
+    });
+  }
+
+  function exportCurrentReportToCsv(rows) {
+    var isCharging = (state.reportSection || "charging") === "charging";
+    var csvRows = [];
+    var filename = "";
+
+    if (isCharging) {
+      var isMonthly = (state.reportChargePeriod || "monthly") === "monthly";
+      var data = isMonthly ? computeMonthlyChargeSummary(rows) : computeYearlyChargeSummary(rows);
+      filename = isMonthly ? "ev_charging_summary_monthly.csv" : "ev_charging_summary_yearly.csv";
+
+      csvRows.push([
+        "ช่วงเวลา",
+        "ชาร์จ AC (ครั้ง)", "ชาร์จ AC (kWh)", "ค่าไฟ AC (บาท)", "อัตราเฉลี่ย AC (บาท/kWh)",
+        "ชาร์จ DC (ครั้ง)", "ชาร์จ DC (kWh)", "ค่าไฟ DC (บาท)", "อัตราเฉลี่ย DC (บาท/kWh)",
+        "รวมชาร์จ (ครั้ง)", "รวมพลังงาน (kWh)", "รวมค่าไฟ (บาท)", "อัตราเฉลี่ยรวม (บาท/kWh)",
+        "สัดส่วน AC (%)", "สัดส่วน DC (%)"
+      ]);
+
+      var sumAcN = 0, sumAcKwh = 0, sumAcCost = 0;
+      var sumDcN = 0, sumDcKwh = 0, sumDcCost = 0;
+      var sumTotN = 0, sumTotKwh = 0, sumTotCost = 0;
+
+      data.forEach(function(d) {
+        sumAcN += d.acCount; sumAcKwh += d.acKwh; sumAcCost += d.acCost;
+        sumDcN += d.dcCount; sumDcKwh += d.dcKwh; sumDcCost += d.dcCost;
+        sumTotN += d.totCount; sumTotKwh += d.totKwh; sumTotCost += d.totCost;
+
+        csvRows.push([
+          '"' + d.label + ' (' + d.period + ')"',
+          d.acCount, d.acKwh.toFixed(2), d.acCost.toFixed(2), d.acRate.toFixed(2),
+          d.dcCount, d.dcKwh.toFixed(2), d.dcCost.toFixed(2), d.dcRate.toFixed(2),
+          d.totCount, d.totKwh.toFixed(2), d.totCost.toFixed(2), d.totRate.toFixed(2),
+          d.acPct.toFixed(1) + "%", d.dcPct.toFixed(1) + "%"
+        ]);
+      });
+
+      var totAcRate = sumAcKwh > 0 ? (sumAcCost / sumAcKwh) : 0;
+      var totDcRate = sumDcKwh > 0 ? (sumDcCost / sumDcKwh) : 0;
+      var totRate = sumTotKwh > 0 ? (sumTotCost / sumTotKwh) : 0;
+      var totAcPct = sumTotKwh > 0 ? (sumAcKwh / sumTotKwh * 100) : 0;
+      var totDcPct = sumTotKwh > 0 ? (sumDcKwh / sumTotKwh * 100) : 0;
+
+      csvRows.push([
+        '"รวมทั้งหมด"',
+        sumAcN, sumAcKwh.toFixed(2), sumAcCost.toFixed(2), totAcRate.toFixed(2),
+        sumDcN, sumDcKwh.toFixed(2), sumDcCost.toFixed(2), totDcRate.toFixed(2),
+        sumTotN, sumTotKwh.toFixed(2), sumTotCost.toFixed(2), totRate.toFixed(2),
+        totAcPct.toFixed(1) + "%", totDcPct.toFixed(1) + "%"
+      ]);
+    } else {
+      var period = state.reportTripPeriod || "monthly";
+      var tripData = period === "daily" ? computeDailyTripSummary(rows) :
+                     period === "yearly" ? computeYearlyTripSummary(rows) : computeMonthlyTripSummary(rows);
+      filename = "ev_trip_summary_" + period + ".csv";
+
+      csvRows.push([
+        "ช่วงเวลา", "เที่ยววิ่ง (ครั้ง)", "ระยะทางรวม (km)", "เวลาเดินทาง (นาที)",
+        "พลังงานที่ใช้ (kWh)", "ค่าไฟเดินทาง (บาท)", "อัตราสิ้นเปลือง (Wh/km)",
+        "ต้นทุน (บาท/km)", "ค่าน้ำมันเทียบเคียง (บาท)", "ประหยัดค่าน้ำมัน (บาท)"
+      ]);
+
+      var sumTrips = 0, sumKm = 0, sumMins = 0, sumKwh = 0, sumCost = 0, sumPetrol = 0, sumSav = 0;
+      tripData.forEach(function(d) {
+        sumTrips += d.trips; sumKm += d.km; sumMins += d.mins; sumKwh += d.kwh;
+        sumCost += d.cost; sumPetrol += d.petrolCost; sumSav += d.savings;
+
+        csvRows.push([
+          '"' + d.label + ' (' + d.period + ')"',
+          d.trips, d.km.toFixed(1), d.mins,
+          d.kwh.toFixed(2), d.cost.toFixed(2), d.whKm.toFixed(1),
+          d.costKm.toFixed(2), d.petrolCost.toFixed(2), d.savings.toFixed(2)
+        ]);
+      });
+
+      var totWhKm = sumKm > 0 && sumKwh > 0 ? (sumKwh * 1000 / sumKm) : 0;
+      var totCostKm = sumKm > 0 && sumCost > 0 ? (sumCost / sumKm) : 0;
+
+      csvRows.push([
+        '"รวมทั้งหมด"',
+        sumTrips, sumKm.toFixed(1), sumMins,
+        sumKwh.toFixed(2), sumCost.toFixed(2), totWhKm.toFixed(1),
+        totCostKm.toFixed(2), sumPetrol.toFixed(2), sumSav.toFixed(2)
+      ]);
+    }
+
+    var csvContent = "\uFEFF" + csvRows.map(function(e) { return e.join(","); }).join("\r\n");
+    var blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    var link = document.createElement("a");
+    var url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("ส่งออกไฟล์ " + filename + " เรียบร้อยแล้ว", "success");
+  }
+
   function renderReportsView(agg, rows) {
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
+
+    var totalAcKwh = 0, totalAcCost = 0, totalAcCount = 0;
+    var totalDcKwh = 0, totalDcCost = 0, totalDcCount = 0;
+    chargeRows.forEach(function(r) {
+      if (isDcChargeRecord(r)) {
+        totalDcCount += 1;
+        totalDcKwh += (r.kwh || 0);
+        totalDcCost += (r.net || 0);
+      } else {
+        totalAcCount += 1;
+        totalAcKwh += (r.kwh || 0);
+        totalAcCost += (r.net || 0);
+      }
+    });
+
+    var totalAllChargeKwh = totalAcKwh + totalDcKwh;
+    var totalAllChargeCost = totalAcCost + totalDcCost;
+    var totalAllChargeCount = totalAcCount + totalDcCount;
+    var avgAllRate = totalAllChargeKwh > 0 ? (totalAllChargeCost / totalAllChargeKwh) : 0;
+    var avgAcRate = totalAcKwh > 0 ? (totalAcCost / totalAcKwh) : 0;
+    var avgDcRate = totalDcKwh > 0 ? (totalDcCost / totalDcKwh) : 0;
+    var acPctTotal = totalAllChargeKwh > 0 ? (totalAcKwh / totalAllChargeKwh * 100) : 0;
+    var dcPctTotal = totalAllChargeKwh > 0 ? (totalDcKwh / totalAllChargeKwh * 100) : 0;
+
+    var sec = state.reportSection || "charging";
+    var chargePeriod = state.reportChargePeriod || "monthly";
+    var tripPeriod = state.reportTripPeriod || "monthly";
+
+    // Top KPI Cards
+    var topKpisHtml = '<div class="kpi-grid" style="margin-bottom:20px;">' +
+      '<div class="kpi-card" style="--kpi-accent:var(--emerald);--kpi-soft:var(--emerald-soft)">' +
+        '<div class="kpi-top"><span class="kpi-label">ระยะทางใช้งานรถสะสม</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div></div>' +
+        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(agg.totalDistanceKm, 0) + '</span><span class="kpi-unit">km</span></div>' +
+        '<div class="kpi-subtext">บันทึกแล้ว ' + tripRows.length + ' เที่ยวเดินทาง | ไมล์ล่าสุด ' + fmtNum(agg.latestOdo, 0) + ' km</div>' +
+      '</div>' +
+
+      '<div class="kpi-card" style="--kpi-accent:var(--teal);--kpi-soft:var(--teal-soft)">' +
+        '<div class="kpi-top"><span class="kpi-label">ชาร์จไฟ AC (บ้าน / ปกติ)</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div></div>' +
+        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(totalAcKwh, 1) + '</span><span class="kpi-unit">kWh</span></div>' +
+        '<div class="kpi-subtext">' + totalAcCount + ' ครั้ง | ' + fmtNum(totalAcCost, 0) + ' ฿ (เฉลี่ย ' + fmtNum(avgAcRate, 2) + ' ฿/u)</div>' +
+      '</div>' +
+
+      '<div class="kpi-card" style="--kpi-accent:var(--sky);--kpi-soft:var(--sky-soft)">' +
+        '<div class="kpi-top"><span class="kpi-label">ชาร์จไฟ DC (Fast Charge)</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></div></div>' +
+        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(totalDcKwh, 1) + '</span><span class="kpi-unit">kWh</span></div>' +
+        '<div class="kpi-subtext">' + totalDcCount + ' ครั้ง | ' + fmtNum(totalDcCost, 0) + ' ฿ (เฉลี่ย ' + fmtNum(avgDcRate, 2) + ' ฿/u)</div>' +
+      '</div>' +
+
+      '<div class="kpi-card" style="--kpi-accent:var(--indigo);--kpi-soft:var(--indigo-soft)">' +
+        '<div class="kpi-top"><span class="kpi-label">รวมชาร์จไฟสุทธิ (AC+DC)</span><div class="kpi-icon-pill"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div></div>' +
+        '<div class="kpi-value-box"><span class="kpi-value">' + fmtNum(totalAllChargeKwh, 1) + '</span><span class="kpi-unit">kWh</span></div>' +
+        '<div class="kpi-subtext">รวม ' + fmtNum(totalAllChargeCost, 0) + ' ฿ | สัดส่วน AC ' + acPctTotal.toFixed(0) + '% : DC ' + dcPctTotal.toFixed(0) + '%</div>' +
+      '</div>' +
+    '</div>';
+
+    // Section Tabs
+    var sectionNavHtml = '<div class="report-section-nav">' +
+      '<button class="report-section-btn ' + (sec === "charging" ? "active" : "") + '" data-report-section="charging">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>' +
+        'รายงานสรุปยอดการชาร์จไฟ (AC / DC / รวม)' +
+      '</button>' +
+      '<button class="report-section-btn ' + (sec === "trips" ? "active" : "") + '" data-report-section="trips">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+        'รายงานสรุปการใช้งานรถ (วัน / เดือน / ปี)' +
+      '</button>' +
+    '</div>';
+
+    var reportContentHtml = "";
+
+    if (sec === "charging") {
+      var isMonthly = chargePeriod === "monthly";
+      var chargeData = isMonthly ? computeMonthlyChargeSummary(rows) : computeYearlyChargeSummary(rows);
+
+      var periodPills = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">' +
+        '<div class="report-period-pills">' +
+          '<button class="report-pill-btn ' + (isMonthly ? "active" : "") + '" data-report-charge-period="monthly">📅 สรุปรายเดือน (Monthly)</button>' +
+          '<button class="report-pill-btn ' + (!isMonthly ? "active" : "") + '" data-report-charge-period="yearly">📆 สรุปรายปี (Yearly)</button>' +
+        '</div>' +
+        '<div style="font-size:12.5px;color:var(--text-muted);">แสดง ' + chargeData.length + ' ช่วงเวลา | แยกประเภท Home AC & Station DC</div>' +
+      '</div>';
+
+      var tableRowsHtml = "";
+      var sumAcCount = 0, sumAcKwh = 0, sumAcCost = 0;
+      var sumDcCount = 0, sumDcKwh = 0, sumDcCost = 0;
+      var sumTotCount = 0, sumTotKwh = 0, sumTotCost = 0;
+
+      if (chargeData.length === 0) {
+        tableRowsHtml = '<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--text-muted);">ยังไม่มีประวัติการชาร์จ</td></tr>';
+      } else {
+        tableRowsHtml = chargeData.map(function(d) {
+          sumAcCount += d.acCount; sumAcKwh += d.acKwh; sumAcCost += d.acCost;
+          sumDcCount += d.dcCount; sumDcKwh += d.dcKwh; sumDcCost += d.dcCost;
+          sumTotCount += d.totCount; sumTotKwh += d.totKwh; sumTotCost += d.totCost;
+
+          return '<tr>' +
+            '<td><strong>' + d.label + '</strong><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">' + d.period + '</div></td>' +
+            '<td class="mono" style="text-align:center;">' + (d.acCount > 0 ? d.acCount + ' ครั้ง' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;">' + (d.acKwh > 0 ? fmtNum(d.acKwh, 1) : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;color:var(--teal);font-weight:600;">' + (d.acCost > 0 ? fmtNum(d.acCost, 0) + ' ฿' : '-') + '</td>' +
+            '<td class="mono" style="text-align:center;">' + (d.dcCount > 0 ? d.dcCount + ' ครั้ง' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;">' + (d.dcKwh > 0 ? fmtNum(d.dcKwh, 1) : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;color:var(--sky);font-weight:600;">' + (d.dcCost > 0 ? fmtNum(d.dcCost, 0) + ' ฿' : '-') + '</td>' +
+            '<td class="mono" style="text-align:center;font-weight:700;">' + d.totCount + '</td>' +
+            '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(d.totKwh, 1) + '</td>' +
+            '<td class="mono" style="text-align:right;font-weight:700;color:var(--text-main);">' + fmtNum(d.totCost, 0) + ' ฿</td>' +
+            '<td class="mono" style="text-align:right;color:var(--text-muted);">' + fmtNum(d.totRate, 2) + '</td>' +
+            '<td>' +
+              '<div style="font-size:11.5px;font-family:var(--font-mono);display:flex;justify-content:space-between;gap:6px;">' +
+                '<span style="color:var(--teal);font-weight:600;">AC ' + d.acPct.toFixed(0) + '%</span>' +
+                '<span style="color:var(--sky);font-weight:600;">DC ' + d.dcPct.toFixed(0) + '%</span>' +
+              '</div>' +
+              '<div class="ratio-bar"><div class="ratio-bar-ac" style="width:' + d.acPct + '%;"></div><div class="ratio-bar-dc" style="width:' + d.dcPct + '%;"></div></div>' +
+            '</td>' +
+          '</tr>';
+        }).join("");
+      }
+
+      var grandAcRate = sumAcKwh > 0 ? (sumAcCost / sumAcKwh) : 0;
+      var grandDcRate = sumDcKwh > 0 ? (sumDcCost / sumDcKwh) : 0;
+      var grandTotRate = sumTotKwh > 0 ? (sumTotCost / sumTotKwh) : 0;
+      var grandAcPct = sumTotKwh > 0 ? (sumAcKwh / sumTotKwh * 100) : 0;
+      var grandDcPct = sumTotKwh > 0 ? (sumDcKwh / sumTotKwh * 100) : 0;
+
+      var footerHtml = '<tfoot><tr>' +
+        '<td><strong>รวมทั้งสิ้น (Grand Total)</strong></td>' +
+        '<td class="mono" style="text-align:center;font-weight:700;">' + sumAcCount + ' ครั้ง</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(sumAcKwh, 1) + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;color:var(--teal);">' + fmtNum(sumAcCost, 0) + ' ฿</td>' +
+        '<td class="mono" style="text-align:center;font-weight:700;">' + sumDcCount + ' ครั้ง</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(sumDcKwh, 1) + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;color:var(--sky);">' + fmtNum(sumDcCost, 0) + ' ฿</td>' +
+        '<td class="mono" style="text-align:center;font-weight:800;font-size:14px;">' + sumTotCount + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:800;font-size:14px;">' + fmtNum(sumTotKwh, 1) + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:800;font-size:14px;color:var(--teal);">' + fmtNum(sumTotCost, 0) + ' ฿</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(grandTotRate, 2) + '</td>' +
+        '<td>' +
+          '<div style="font-size:11px;font-family:var(--font-mono);display:flex;justify-content:space-between;">' +
+            '<span style="color:var(--teal);font-weight:700;">' + grandAcPct.toFixed(0) + '%</span>' +
+            '<span style="color:var(--sky);font-weight:700;">' + grandDcPct.toFixed(0) + '%</span>' +
+          '</div>' +
+          '<div class="ratio-bar"><div class="ratio-bar-ac" style="width:' + grandAcPct + '%;"></div><div class="ratio-bar-dc" style="width:' + grandDcPct + '%;"></div></div>' +
+        '</td>' +
+      '</tr></tfoot>';
+
+      reportContentHtml = periodPills +
+        '<div class="table-wrapper">' +
+          '<table class="data-table report-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th rowspan="2" style="vertical-align:middle;text-align:left;">ช่วงเวลา</th>' +
+                '<th colspan="3" style="background:rgba(13,148,136,0.08);color:var(--teal);border-bottom:1px solid var(--border);">🏠 ชาร์จ AC (บ้าน/ปกติ)</th>' +
+                '<th colspan="3" style="background:rgba(2,132,199,0.08);color:var(--sky);border-bottom:1px solid var(--border);">⚡ ชาร์จ DC (สถานี/เร็ว)</th>' +
+                '<th colspan="4" style="background:rgba(99,102,241,0.08);color:var(--indigo);border-bottom:1px solid var(--border);">🔌 รวมสุทธิ (AC + DC)</th>' +
+                '<th rowspan="2" style="vertical-align:middle;min-width:110px;">สัดส่วน AC:DC</th>' +
+              '</tr>' +
+              '<tr>' +
+                '<th style="background:rgba(13,148,136,0.04);">ครั้ง</th><th style="background:rgba(13,148,136,0.04);">kWh</th><th style="background:rgba(13,148,136,0.04);">ยอดเงิน (฿)</th>' +
+                '<th style="background:rgba(2,132,199,0.04);">ครั้ง</th><th style="background:rgba(2,132,199,0.04);">kWh</th><th style="background:rgba(2,132,199,0.04);">ยอดเงิน (฿)</th>' +
+                '<th style="background:rgba(99,102,241,0.04);">รวมครั้ง</th><th style="background:rgba(99,102,241,0.04);">รวม kWh</th><th style="background:rgba(99,102,241,0.04);">รวมเงิน (฿)</th><th style="background:rgba(99,102,241,0.04);">฿/kWh</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + tableRowsHtml + '</tbody>' +
+            footerHtml +
+          '</table>' +
+        '</div>';
+    } else {
+      // Trips Section
+      var tripData = tripPeriod === "daily" ? computeDailyTripSummary(rows) :
+                     tripPeriod === "yearly" ? computeYearlyTripSummary(rows) : computeMonthlyTripSummary(rows);
+
+      var periodPills = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">' +
+        '<div class="report-period-pills">' +
+          '<button class="report-pill-btn ' + (tripPeriod === "daily" ? "active" : "") + '" data-report-trip-period="daily">📆 สรุปรายวัน (Daily)</button>' +
+          '<button class="report-pill-btn ' + (tripPeriod === "monthly" ? "active" : "") + '" data-report-trip-period="monthly">📅 สรุปรายเดือน (Monthly)</button>' +
+          '<button class="report-pill-btn ' + (tripPeriod === "yearly" ? "active" : "") + '" data-report-trip-period="yearly">🗓️ สรุปรายปี (Yearly)</button>' +
+        '</div>' +
+        '<div style="font-size:12.5px;color:var(--text-muted);">แสดง ' + tripData.length + ' ช่วงเวลา | ติดตามระยะทางและประสิทธิภาพการขับขี่</div>' +
+      '</div>';
+
+      var sumTrips = 0, sumKm = 0, sumMins = 0, sumKwh = 0, sumCost = 0, sumPetrol = 0, sumSav = 0;
+      var tableRowsHtml = "";
+
+      if (tripData.length === 0) {
+        tableRowsHtml = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);">ยังไม่มีประวัติการเดินทาง</td></tr>';
+      } else {
+        tableRowsHtml = tripData.map(function(d) {
+          sumTrips += d.trips; sumKm += d.km; sumMins += d.mins; sumKwh += d.kwh;
+          sumCost += d.cost; sumPetrol += d.petrolCost; sumSav += d.savings;
+
+          var durationStr = d.mins > 0 ? (Math.floor(d.mins / 60) > 0 ? Math.floor(d.mins / 60) + ' ชม. ' : '') + (d.mins % 60) + ' น.' : '-';
+
+          return '<tr>' +
+            '<td><strong>' + d.label + '</strong><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">' + d.period + '</div></td>' +
+            '<td class="mono" style="text-align:center;">' + d.trips + ' เที่ยว</td>' +
+            '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(d.km, 1) + ' km</td>' +
+            '<td class="mono" style="text-align:center;">' + durationStr + '</td>' +
+            '<td class="mono" style="text-align:right;">' + (d.kwh > 0 ? fmtNum(d.kwh, 2) + ' kWh' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;color:var(--teal);font-weight:600;">' + (d.cost > 0 ? fmtNum(d.cost, 1) + ' ฿' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;">' + (d.whKm > 0 ? fmtNum(d.whKm, 1) + ' Wh/km' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;">' + (d.costKm > 0 ? fmtNum(d.costKm, 2) + ' ฿' : '-') + '</td>' +
+            '<td class="mono" style="text-align:right;color:var(--text-muted);">' + fmtNum(d.petrolCost, 1) + ' ฿</td>' +
+            '<td class="mono" style="text-align:right;color:var(--emerald);font-weight:700;">+' + fmtNum(d.savings, 1) + ' ฿</td>' +
+          '</tr>';
+        }).join("");
+      }
+
+      var grandWhKm = sumKm > 0 && sumKwh > 0 ? (sumKwh * 1000 / sumKm) : 0;
+      var grandCostKm = sumKm > 0 && sumCost > 0 ? (sumCost / sumKm) : 0;
+      var grandDurationStr = sumMins > 0 ? (Math.floor(sumMins / 60) > 0 ? Math.floor(sumMins / 60) + ' ชม. ' : '') + (sumMins % 60) + ' น.' : '-';
+
+      var footerHtml = '<tfoot><tr>' +
+        '<td><strong>รวมทั้งสิ้น (Grand Total)</strong></td>' +
+        '<td class="mono" style="text-align:center;font-weight:800;">' + sumTrips + ' เที่ยว</td>' +
+        '<td class="mono" style="text-align:right;font-weight:800;color:var(--text-main);">' + fmtNum(sumKm, 1) + ' km</td>' +
+        '<td class="mono" style="text-align:center;font-weight:700;">' + grandDurationStr + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + fmtNum(sumKwh, 1) + ' kWh</td>' +
+        '<td class="mono" style="text-align:right;font-weight:800;color:var(--teal);">' + fmtNum(sumCost, 1) + ' ฿</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + (grandWhKm > 0 ? fmtNum(grandWhKm, 1) + ' Wh/km' : '-') + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;">' + (grandCostKm > 0 ? fmtNum(grandCostKm, 2) + ' ฿' : '-') + '</td>' +
+        '<td class="mono" style="text-align:right;font-weight:700;color:var(--text-muted);">' + fmtNum(sumPetrol, 1) + ' ฿</td>' +
+        '<td class="mono" style="text-align:right;font-weight:800;color:var(--emerald);font-size:14px;">+' + fmtNum(sumSav, 1) + ' ฿</td>' +
+      '</tr></tfoot>';
+
+      reportContentHtml = periodPills +
+        '<div class="table-wrapper">' +
+          '<table class="data-table report-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th style="text-align:left;">ช่วงเวลา</th>' +
+                '<th>เที่ยววิ่ง</th>' +
+                '<th style="text-align:right;">ระยะทางรวม</th>' +
+                '<th>เวลาเดินทาง</th>' +
+                '<th style="text-align:right;">พลังงานที่ใช้</th>' +
+                '<th style="text-align:right;">ค่าไฟเดินทาง</th>' +
+                '<th style="text-align:right;">อัตราสิ้นเปลือง</th>' +
+                '<th style="text-align:right;">ต้นทุน / กม.</th>' +
+                '<th style="text-align:right;">ค่าน้ำมันเทียบเคียง</th>' +
+                '<th style="text-align:right;color:var(--emerald);">ประหยัดได้</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' + tableRowsHtml + '</tbody>' +
+            footerHtml +
+          '</table>' +
+        '</div>';
+    }
 
     return '<div class="card">' +
-      '<div class="card-header"><div><div class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg> สรุปรายงานและดาวน์โหลดข้อมูล (Reports & Export)</div><div class="card-subtitle">ส่งออกข้อมูลในรูปแบบ CSV หรือสั่งพิมพ์หน้ารายงาน</div></div>' +
-      '<div style="display:flex;gap:8px;"><button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ พิมพ์รายงาน</button><button class="btn btn-primary btn-sm" id="btnExportCsv">📥 ส่งออกไฟล์ CSV</button></div></div>' +
-      '<div style="background:var(--surface-subtle);border-radius:var(--radius-md);padding:18px;margin-bottom:20px;">' +
-        '<h4 style="font-size:14.5px;font-weight:700;margin-bottom:8px;">ภาพรวมสถิติทั้งระบบ</h4>' +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;">' +
-          '<div><span style="font-size:12px;color:var(--text-muted);">จำนวนครั้งที่ชาร์จ:</span><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;">' + chargeRows.length + ' ครั้ง</div></div>' +
-          '<div><span style="font-size:12px;color:var(--text-muted);">พลังงานทั้งหมด:</span><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;">' + fmtNum(agg.totalChargedKwh, 1) + ' kWh</div></div>' +
-          '<div><span style="font-size:12px;color:var(--text-muted);">ค่าใช้จ่ายรวม:</span><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:var(--teal);">' + fmtNum(agg.totalCostThb, 2) + ' ฿</div></div>' +
-          '<div><span style="font-size:12px;color:var(--text-muted);">เงินที่ประหยัดได้:</span><div style="font-family:var(--font-mono);font-weight:700;font-size:18px;color:var(--emerald);">' + fmtNum(agg.totalSavings, 2) + ' ฿</div></div>' +
+      '<div class="card-header"><div>' +
+        '<div class="card-title">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>' +
+          'รายงานสรุปการใช้งานและยอดการชาร์จ (Reports & Analytics)' +
         '</div>' +
+        '<div class="card-subtitle">วิเคราะห์การใช้งานรถรายวัน/เดือน/ปี และยอดชาร์จแยกตาม AC (Home) / DC (Fast Charge)</div>' +
       '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="window.print()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> พิมพ์รายงาน</button>' +
+        '<button class="btn btn-primary btn-sm" id="btnExportReportCsv"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> ส่งออกรายงานนี้ (.CSV)</button>' +
+      '</div></div>' +
+      topKpisHtml +
+      sectionNavHtml +
+      reportContentHtml +
     '</div>';
   }
 
@@ -2352,6 +3213,47 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       var model = presetTarget.getAttribute("data-preset");
       var cap = parseFloat(presetTarget.getAttribute("data-cap"));
       window.evApplyPreset(model, cap);
+      return;
+    }
+
+    var reportSecTarget = e.target.closest("[data-report-section]");
+    if (reportSecTarget) {
+      e.preventDefault();
+      var sec = reportSecTarget.getAttribute("data-report-section");
+      if (sec) {
+        state.reportSection = sec;
+        renderView();
+      }
+      return;
+    }
+
+    var reportChargePeriodTarget = e.target.closest("[data-report-charge-period]");
+    if (reportChargePeriodTarget) {
+      e.preventDefault();
+      var cp = reportChargePeriodTarget.getAttribute("data-report-charge-period");
+      if (cp) {
+        state.reportChargePeriod = cp;
+        renderView();
+      }
+      return;
+    }
+
+    var reportTripPeriodTarget = e.target.closest("[data-report-trip-period]");
+    if (reportTripPeriodTarget) {
+      e.preventDefault();
+      var tp = reportTripPeriodTarget.getAttribute("data-report-trip-period");
+      if (tp) {
+        state.reportTripPeriod = tp;
+        renderView();
+      }
+      return;
+    }
+
+    var btnExpReport = e.target.closest("#btnExportReportCsv, #btnExportCsv");
+    if (btnExpReport) {
+      e.preventDefault();
+      var rows = (state.payload.data && state.payload.data.rows) || [];
+      exportCurrentReportToCsv(rows);
       return;
     }
   });
