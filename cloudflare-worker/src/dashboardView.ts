@@ -972,6 +972,16 @@ body {
   margin-top: 2px;
 }
 
+.bar-group rect {
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+
+.bar-group:hover rect {
+  opacity: 0.88;
+  filter: brightness(1.1);
+}
+
 .smart-advice-box {
   background: var(--surface-subtle);
   border: 1px solid var(--border);
@@ -2013,6 +2023,25 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     })()
   };
 
+  var thaiMonthNamesShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  var thaiMonthNamesFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+  function formatThaiMonthShort(ym) {
+    if (!ym || ym.length < 7) return ym || "-";
+    var p = ym.split("-");
+    var y = (parseInt(p[0], 10) + 543) % 100;
+    var m = parseInt(p[1], 10) - 1;
+    return (thaiMonthNamesShort[m] || p[1]) + " " + (y < 10 ? "0" + y : y);
+  }
+
+  function formatThaiMonth(ym) {
+    if (!ym || ym.length < 7) return ym || "-";
+    var p = ym.split("-");
+    var y = parseInt(p[0], 10) + 543;
+    var m = parseInt(p[1], 10) - 1;
+    return (thaiMonthNamesFull[m] || p[1]) + " " + y;
+  }
+
   function updateThemeUI(t) {
     document.documentElement.setAttribute("data-theme", t);
     var sun = document.getElementById("themeIconSun");
@@ -2325,26 +2354,31 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var chartSvg = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">ยังไม่มีข้อมูลประวัติการชาร์จเพียงพอสำหรับแสดงกราฟ</div>';
     if (monthly.length > 0) {
       var maxKwh = Math.max.apply(Math, monthly.map(function(m) { return m.kwh; }).concat([10]));
-      var chartH = 140;
-      var barW = 32;
-      var gap = 24;
-      var totalW = Math.max(380, monthly.length * (barW + gap) + 40);
+      var topMargin = 45;
+      var maxBarH = 85;
+      var barW = 38;
+      var gap = 28;
+      var totalW = Math.max(380, monthly.length * (barW + gap) + 48);
+      var baseY = topMargin + maxBarH; // 130
+      var svgH = baseY + 36; // 166
 
       var bars = monthly.map(function(m, i) {
-        var h = Math.round((m.kwh / maxKwh) * (chartH - 30));
-        var x = 30 + i * (barW + gap);
-        var y = chartH - h - 20;
+        var h = Math.max(4, Math.round((m.kwh / maxKwh) * maxBarH));
+        var x = 28 + i * (barW + gap);
+        var y = baseY - h;
+        var monthLabel = formatThaiMonthShort(m.month);
         return '<g class="bar-group">' +
           '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" rx="6" fill="url(#skyGradient)" />' +
-          '<text x="' + (x + barW/2) + '" y="' + (y - 6) + '" font-size="11" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="600">' + m.kwh.toFixed(0) + '</text>' +
-          '<text x="' + (x + barW/2) + '" y="' + chartH + '" font-size="10.5" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle">' + m.month.substring(5) + '/' + m.month.substring(2,4) + '</text>' +
+          '<text x="' + (x + barW/2) + '" y="' + (y - 17) + '" font-size="11.5" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + m.kwh.toFixed(0) + ' <tspan font-size="9" fill="var(--text-muted)">kWh</tspan></text>' +
+          '<text x="' + (x + barW/2) + '" y="' + (y - 4) + '" font-size="10" font-family="JetBrains Mono" fill="var(--text-secondary)" text-anchor="middle">' + fmtNum(m.cost, 0) + ' ฿</text>' +
+          '<text x="' + (x + barW/2) + '" y="' + (baseY + 20) + '" font-size="11" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle" font-weight="500">' + monthLabel + '</text>' +
           '</g>';
       }).join("");
 
       chartSvg = '<div style="overflow-x:auto;padding-bottom:8px;">' +
-        '<svg width="' + totalW + '" height="' + (chartH + 10) + '" viewBox="0 0 ' + totalW + ' ' + (chartH + 10) + '">' +
+        '<svg width="' + totalW + '" height="' + svgH + '" viewBox="0 0 ' + totalW + ' ' + svgH + '">' +
         '<defs><linearGradient id="skyGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38BDF8" /><stop offset="100%" stop-color="#0284C7" /></linearGradient></defs>' +
-        '<line x1="20" y1="' + (chartH - 20) + '" x2="' + (totalW - 20) + '" y2="' + (chartH - 20) + '" stroke="var(--border)" stroke-width="1" />' +
+        '<line x1="16" y1="' + (baseY + 4) + '" x2="' + (totalW - 16) + '" y2="' + (baseY + 4) + '" stroke="var(--border)" stroke-width="1" />' +
         bars +
         '</svg></div>';
     }
@@ -2565,9 +2599,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
             '<div>' +
               '<div class="card-title">' +
                 '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
-                ' แนวโน้มการชาร์จไฟรายเดือน (Monthly Energy kWh)' +
+                ' แนวโน้มการชาร์จไฟรายเดือน (Monthly Energy & Cost)' +
               '</div>' +
-              '<div class="card-subtitle">ปริมาณพลังงานไฟฟ้าที่รับเข้าสู่แบตเตอรี่ในแต่ละเดือน</div>' +
+              '<div class="card-subtitle">ปริมาณพลังงานไฟฟ้า (kWh) และยอดค่าใช้จ่าย (฿) ในแต่ละเดือน</div>' +
             '</div>' +
             '<span class="badge badge-sky">' + monthly.length + ' เดือนที่บันทึก</span>' +
           '</div>' +
@@ -2914,24 +2948,14 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
-  var thaiMonthNamesShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-  var thaiMonthNamesFull = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
   function formatThaiDate(iso) {
-    if (!iso || iso.length < 10) return iso || "-";
+    if (!iso) return "-";
     var p = iso.split("-");
-    var y = parseInt(p[0], 10) + 543;
-    var m = parseInt(p[1], 10) - 1;
+    if (p.length < 3) return iso;
     var d = parseInt(p[2], 10);
-    return d + " " + (thaiMonthNamesShort[m] || p[1]) + " " + y;
-  }
-
-  function formatThaiMonth(ym) {
-    if (!ym || ym.length < 7) return ym || "-";
-    var p = ym.split("-");
-    var y = parseInt(p[0], 10) + 543;
     var m = parseInt(p[1], 10) - 1;
-    return (thaiMonthNamesFull[m] || p[1]) + " " + y;
+    var y = (parseInt(p[0], 10) + 543) % 100;
+    return d + " " + (thaiMonthNamesShort[m] || p[1]) + " " + (y < 10 ? "0" + y : y);
   }
 
   function formatThaiYear(y) {
@@ -3438,7 +3462,75 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '</td>' +
       '</tr></tfoot>';
 
+      var chargeChartHtml = "";
+      if (chargeData.length > 0) {
+        var chartData = chargeData.slice().reverse();
+        var maxCost = Math.max.apply(Math, chartData.map(function(d) { return d.totCost; }).concat([100]));
+        var cBarW = 44;
+        var cGap = 36;
+        var cTopMargin = 48;
+        var cMaxBarH = 100;
+        var cTotalW = Math.max(380, chartData.length * (cBarW + cGap) + 50);
+        var cBaseY = cTopMargin + cMaxBarH;
+        var cSvgH = cBaseY + 38;
+
+        var cBars = chartData.map(function(d, i) {
+          var totH = Math.max(6, Math.round((d.totCost / maxCost) * cMaxBarH));
+          var acH = d.totCost > 0 ? Math.round((d.acCost / d.totCost) * totH) : 0;
+          var dcH = totH - acH;
+          var x = 32 + i * (cBarW + cGap);
+          var yTot = cBaseY - totH;
+          var yAc = cBaseY - acH;
+          var yDc = yTot;
+          var monthLabel = isMonthly ? formatThaiMonthShort(d.period) : (d.period + ' (พ.ศ. ' + (parseInt(d.period,10) + 543) + ')');
+
+          var rects = '';
+          if (acH > 0 && dcH > 0) {
+            rects = '<rect x="' + x + '" y="' + yDc + '" width="' + cBarW + '" height="' + dcH + '" rx="5" fill="url(#dcGradient)" />' +
+                    '<rect x="' + x + '" y="' + yAc + '" width="' + cBarW + '" height="' + acH + '" rx="5" fill="url(#acGradient)" />';
+          } else if (dcH > 0) {
+            rects = '<rect x="' + x + '" y="' + yDc + '" width="' + cBarW + '" height="' + dcH + '" rx="5" fill="url(#dcGradient)" />';
+          } else {
+            rects = '<rect x="' + x + '" y="' + yTot + '" width="' + cBarW + '" height="' + totH + '" rx="5" fill="url(#acGradient)" />';
+          }
+
+          return '<g class="bar-group">' +
+            rects +
+            '<text x="' + (x + cBarW/2) + '" y="' + (yTot - 18) + '" font-size="12" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + fmtNum(d.totCost, 0) + ' <tspan font-size="9.5" fill="var(--text-muted)">฿</tspan></text>' +
+            '<text x="' + (x + cBarW/2) + '" y="' + (yTot - 4) + '" font-size="10" font-family="JetBrains Mono" fill="var(--text-secondary)" text-anchor="middle">' + fmtNum(d.totKwh, 0) + ' kWh</text>' +
+            '<text x="' + (x + cBarW/2) + '" y="' + (cBaseY + 22) + '" font-size="11" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle" font-weight="500">' + monthLabel + '</text>' +
+            '</g>';
+        }).join("");
+
+        chargeChartHtml = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:20px;box-shadow:var(--shadow-sm);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">' +
+            '<div>' +
+              '<div style="font-size:14px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:7px;">' +
+                '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
+                'กราฟแท่งเปรียบเทียบค่าชาร์จไฟ' + (isMonthly ? 'รายเดือน' : 'รายปี') + ' (Charging Cost Breakdown)' +
+              '</div>' +
+              '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">แสดงยอดเงินค่าชาร์จสุทธิแยกสัดส่วนระหว่าง AC ชาร์จบ้าน กับ DC ชาร์จเร็ว</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:14px;font-size:12px;color:var(--text-secondary);align-items:center;background:var(--surface-subtle);padding:6px 12px;border-radius:999px;border:1px solid var(--border);">' +
+              '<span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg, #38BDF8, #0284C7);display:inline-block;"></span> <span style="font-weight:500;">AC บ้าน</span></span>' +
+              '<span style="display:flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg, #818CF8, #6366F1);display:inline-block;"></span> <span style="font-weight:500;">DC ตู้ด่วน</span></span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="overflow-x:auto;padding-bottom:6px;">' +
+            '<svg width="' + cTotalW + '" height="' + cSvgH + '" viewBox="0 0 ' + cTotalW + ' ' + cSvgH + '">' +
+              '<defs>' +
+                '<linearGradient id="acGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38BDF8"/><stop offset="100%" stop-color="#0284C7"/></linearGradient>' +
+                '<linearGradient id="dcGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#818CF8"/><stop offset="100%" stop-color="#6366F1"/></linearGradient>' +
+              '</defs>' +
+              '<line x1="16" y1="' + (cBaseY + 4) + '" x2="' + (cTotalW - 16) + '" y2="' + (cBaseY + 4) + '" stroke="var(--border)" stroke-width="1" />' +
+              cBars +
+            '</svg>' +
+          '</div>' +
+        '</div>';
+      }
+
       reportContentHtml = periodPills +
+        chargeChartHtml +
         '<div class="table-wrapper">' +
           '<table class="data-table report-table">' +
             '<thead>' +
@@ -3517,7 +3609,56 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '<td class="mono" style="text-align:right;font-weight:800;color:var(--emerald);font-size:14px;">+' + fmtNum(sumSav, 1) + ' ฿</td>' +
       '</tr></tfoot>';
 
+      var tripChartHtml = "";
+      if (tripData.length > 0 && tripPeriod !== "daily") {
+        var chartTrips = tripData.slice().reverse();
+        var maxKm = Math.max.apply(Math, chartTrips.map(function(d) { return d.km; }).concat([10]));
+        var tTopMargin = 48;
+        var tMaxBarH = 100;
+        var tBarW = 44;
+        var tGap = 36;
+        var tTotalW = Math.max(380, chartTrips.length * (tBarW + tGap) + 50);
+        var tBaseY = tTopMargin + tMaxBarH;
+        var tSvgH = tBaseY + 38;
+
+        var tBars = chartTrips.map(function(d, i) {
+          var h = Math.max(6, Math.round((d.km / maxKm) * tMaxBarH));
+          var x = 32 + i * (tBarW + tGap);
+          var y = tBaseY - h;
+          var label = (tripPeriod === "monthly") ? formatThaiMonthShort(d.period) : d.label;
+
+          return '<g class="bar-group">' +
+            '<rect x="' + x + '" y="' + y + '" width="' + tBarW + '" height="' + h + '" rx="5" fill="url(#tripGradient)" />' +
+            '<text x="' + (x + tBarW/2) + '" y="' + (y - 18) + '" font-size="12" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + fmtNum(d.km, 0) + ' <tspan font-size="9.5" fill="var(--text-muted)">km</tspan></text>' +
+            '<text x="' + (x + tBarW/2) + '" y="' + (y - 4) + '" font-size="10" font-family="JetBrains Mono" fill="var(--emerald)" text-anchor="middle">+' + fmtNum(d.savings, 0) + ' ฿ ประหยัด</text>' +
+            '<text x="' + (x + tBarW/2) + '" y="' + (tBaseY + 22) + '" font-size="11" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle" font-weight="500">' + label + '</text>' +
+            '</g>';
+        }).join("");
+
+        tripChartHtml = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:20px;box-shadow:var(--shadow-sm);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">' +
+            '<div>' +
+              '<div style="font-size:14px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:7px;">' +
+                '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
+                'กราฟแท่งระยะทางเดินทาง' + (tripPeriod === "monthly" ? "รายเดือน" : "รายปี") + ' (Distance & Cost Savings)' +
+              '</div>' +
+              '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">แสดงระยะทางรวมที่วิ่ง (กม.) พร้อมยอดเงินประหยัดเมื่อเทียบกับรถใช้น้ำมัน</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="overflow-x:auto;padding-bottom:6px;">' +
+            '<svg width="' + tTotalW + '" height="' + tSvgH + '" viewBox="0 0 ' + tTotalW + ' ' + tSvgH + '">' +
+              '<defs>' +
+                '<linearGradient id="tripGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2DD4BF"/><stop offset="100%" stop-color="#0D9488"/></linearGradient>' +
+              '</defs>' +
+              '<line x1="16" y1="' + (tBaseY + 4) + '" x2="' + (tTotalW - 16) + '" y2="' + (tBaseY + 4) + '" stroke="var(--border)" stroke-width="1" />' +
+              tBars +
+            '</svg>' +
+          '</div>' +
+        '</div>';
+      }
+
       reportContentHtml = periodPills +
+        tripChartHtml +
         '<div class="table-wrapper">' +
           '<table class="data-table report-table">' +
             '<thead>' +
