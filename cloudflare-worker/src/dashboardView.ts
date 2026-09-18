@@ -2584,7 +2584,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
               '</div>' +
               '<div class="card-subtitle">สัดส่วนการชาร์จบ้านและตู้สาธารณะ</div>' +
             '</div>' +
-            '<button class="btn btn-secondary btn-sm" data-nav="settings">ตั้งค่ารถ/ไฟ</button>' +
+            '<button class="btn btn-secondary btn-sm" data-nav="reports">ดูรายงานแยก AC/DC</button>' +
           '</div>' +
 
           '<div class="charging-mix-box">' +
