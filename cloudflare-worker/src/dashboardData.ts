@@ -256,12 +256,16 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
         if (odoMax === null || odoE > odoMax) odoMax = odoE;
       }
 
-      // ตรวจสอบ kind ว่าเป็นการชาร์จหรือขับ
-      const isCharge =
-        km === 0 ||
+      // ตรวจสอบ kind ว่าเป็นการชาร์จหรือขับ:
+      // หากมีระยะทางวิ่ง (km > 0) ต้องถือเป็น trip เสมอ ไม่ให้โดนคำว่า "since charge" ใน note หลอก
+      const isTrip = km > 0;
+      const isCharge = !isTrip && (
         cons === 0 ||
+        kwh > 0 ||
+        net > 0 ||
         note.toLowerCase().includes("charg") ||
-        note.includes("ชาร์จ");
+        note.includes("ชาร์จ")
+      );
 
       rows.push({
         sheetRowIndex: i + 1,
@@ -283,8 +287,21 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
       });
     }
 
-    // เรียงลำดับข้อมูลตามวันและเวลา (เก่าสุดไปใหม่สุด)
-    rows.sort((a, b) => (a.iso + " " + (a.time || "00:00")).localeCompare(b.iso + " " + (b.time || "00:00")));
+    // เรียงลำดับข้อมูล:
+    // 1. วันที่ (iso)
+    // 2. หากวันเดียวกัน ให้ใช้เลขไมล์สะสม (Odometer) เป็นหลัก เพราะรถวิ่งไมล์เพิ่มขึ้นเสมอ
+    // 3. หากไมล์เท่ากัน ให้ยึดลำดับแถวจริงใน Google Sheet (sheetRowIndex) เพื่อคงลำดับเวลาจริง
+    rows.sort((a, b) => {
+      if (a.iso !== b.iso) {
+        return a.iso.localeCompare(b.iso);
+      }
+      const aOdo = a.odoEnd || a.odoStart || 0;
+      const bOdo = b.odoEnd || b.odoStart || 0;
+      if (aOdo > 0 && bOdo > 0 && aOdo !== bOdo) {
+        return aOdo - bOdo;
+      }
+      return a.sheetRowIndex - b.sheetRowIndex;
+    });
 
     const defaultRate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
     const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.5");
