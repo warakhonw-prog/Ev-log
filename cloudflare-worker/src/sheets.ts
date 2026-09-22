@@ -37,7 +37,7 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 /**
  * สร้าง Google OAuth2 Access Token โดยใช้ Service Account RSA Private Key
  */
-async function getGoogleAccessToken(
+export async function getGoogleAccessToken(
   clientEmail: string,
   privateKeyPem: string
 ): Promise<string> {
@@ -45,7 +45,7 @@ async function getGoogleAccessToken(
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: clientEmail,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
+    scope: "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,

@@ -9,6 +9,7 @@ ELECTRICITY_RATE_THB = "4.90"
 CHARGING_EFFICIENCY = "0.90"
 GEMINI_MODEL = "gemini-3.6-flash"
 SPREADSHEET_ID = "1wI1DQLZZXSKX1-R-3Dn6hV5hcdeTvU4teG_zEuvkd3g"
+GOOGLE_DRIVE_FOLDER_ID = "1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e"
 
 # Secrets ที่ต้องตั้งค่าผ่าน wrangler secret put หรือใน Cloudflare Dashboard:
 # 1. GEMINI_API_KEY

@@ -22,6 +22,7 @@ import {
   deleteSheetRow,
   appendRawRowToGoogleSheet,
 } from "./sheets";
+import { uploadImageToGoogleDrive } from "./drive";
 
 import { fetchDashboardDataFromSheets } from "./dashboardData";
 import { renderDashboardHtml } from "./dashboardView";
@@ -215,6 +216,8 @@ export default {
         env.GOOGLE_APPS_SCRIPT_URL ||
         (env.SPREADSHEET_ID && env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY)
       );
+      const driveFolder = env.GOOGLE_DRIVE_FOLDER_ID || "1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e";
+      const isDriveOk = !!(driveFolder && env.GOOGLE_CLIENT_EMAIL && env.GOOGLE_PRIVATE_KEY);
 
       const html = `
       <!DOCTYPE html>
@@ -224,32 +227,46 @@ export default {
         <meta charset="utf-8">
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px 20px; }
-          .box { max-width: 550px; margin: 0 auto; background: #1e293b; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+          .box { max-width: 580px; margin: 0 auto; background: #1e293b; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
           h2 { color: #38bdf8; margin-top: 0; }
-          .item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; }
+          .item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; font-size: 13.5px; }
           .badge-ok { color: #4ade80; font-weight: bold; }
           .badge-no { color: #f87171; font-weight: bold; }
           a { color: #38bdf8; text-decoration: none; }
+          code { font-family: monospace; background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #38bdf8; }
         </style>
       </head>
       <body>
         <div class="box">
           <h2>⚡ EV Trip & Charge Log (Cloudflare Worker)</h2>
-          <p style="color: #94a3b8;">Serverless 24/7 Webhook & Live Dashboard</p>
+          <p style="color: #94a3b8;">Serverless 24/7 Webhook, AI Vision OCR & Live Dashboard</p>
           <div class="item">
             <span>Gemini Vision API:</span>
             <span class="${isGeminiOk ? "badge-ok" : "badge-no"}">${isGeminiOk ? "✅ Ready" : "❌ Missing GEMINI_API_KEY"}</span>
           </div>
           <div class="item">
             <span>LINE Messaging API:</span>
-            <span class="${isLineOk ? "badge-ok" : "badge-no"}">${isLineOk ? "✅ Ready" : "❌ Missing Token/Secret"}</span>
+            <span class="${isLineOk ? "badge-ok" : "badge-no"}">${isLineOk ? "✅ Ready (Flex Enabled)" : "❌ Missing Token/Secret"}</span>
           </div>
           <div class="item">
-            <span>Google Sheets Integration:</span>
+            <span>Google Sheets Sync:</span>
             <span class="${isSheetsOk ? "badge-ok" : "badge-no"}">${isSheetsOk ? "✅ Ready" : "❌ Missing Credentials"}</span>
           </div>
-          <div style="margin-top: 20px; font-size: 14px; color: #cbd5e1;">
-            <p><strong>📊 Live Web Dashboard:</strong> <a href="${url.origin}/">Open Dashboard</a></p>
+          <div class="item">
+            <span>Google Drive Storage:</span>
+            <span class="${isDriveOk ? "badge-ok" : "badge-no"}">${isDriveOk ? "✅ Ready" : "❌ Missing Config"}</span>
+          </div>
+          <div class="item">
+            <span>Service Account Email:</span>
+            <span><code>${env.GOOGLE_CLIENT_EMAIL || "Not set"}</code></span>
+          </div>
+          <div class="item">
+            <span>Drive Folder ID:</span>
+            <span><code>${driveFolder}</code></span>
+          </div>
+          <div style="margin-top: 20px; font-size: 14px; color: #cbd5e1; line-height: 1.6;">
+            <p><strong>📊 Live Web Dashboard:</strong> <a href="${url.origin}/" target="_blank">Open Dashboard</a></p>
+            <p><strong>📁 Google Drive Folder:</strong> <a href="https://drive.google.com/drive/folders/${driveFolder}" target="_blank">Open Folder</a></p>
             <p><strong>LINE Webhook URL:</strong><br><code>${url.origin}/callback</code></p>
           </div>
         </div>
@@ -316,8 +333,33 @@ async function handleImageEvent(event: any, env: Env): Promise<void> {
     let replyMessageText = "";
     let sheetStatus = "✅ บันทึกลง Google Sheets แล้ว";
 
-    if (analysis.type === "charging" && analysis.charging_data) {
+    // อัปโหลดภาพเข้า Google Drive โฟลเดอร์ที่กำหนด
+    const folderId = env.GOOGLE_DRIVE_FOLDER_ID || "1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e";
+    const nowStr = new Date().toISOString().replace(/[:.]/g, "-");
+    const isCharging = analysis.type === "charging" && !!analysis.charging_data;
+    const filename = isCharging
+      ? `EV_Charge_${nowStr}_${messageId.slice(-6)}.jpg`
+      : `EV_Trip_${nowStr}_${messageId.slice(-6)}.jpg`;
+
+    let driveLink: string | null = null;
+    try {
+      console.log(`[Google Drive] Uploading image: ${filename} to folder: ${folderId}...`);
+      const driveRes = await uploadImageToGoogleDrive(imageBase64, filename, folderId, env);
+      if (driveRes) {
+        driveLink = driveRes.webViewLink;
+        console.log(`[Google Drive] Uploaded successfully: ${driveLink}`);
+      }
+    } catch (dErr: any) {
+      console.warn("[Google Drive] Upload skipped or failed:", dErr?.message || dErr);
+    }
+
+    let flexMessage: any;
+
+    if (isCharging && analysis.charging_data) {
       const record = buildChargingRecord(analysis.charging_data, env);
+      if (driveLink) {
+        record.note = record.note ? `${record.note} [Drive]` : "[Drive]";
+      }
 
       try {
         console.log(`[3/4] Appending row to Google Sheet (Charging)...`);
@@ -330,6 +372,7 @@ async function handleImageEvent(event: any, env: Env): Promise<void> {
       }
 
       replyMessageText = formatChargingSummaryText(record, sheetStatus);
+      flexMessage = buildChargingFlex(record, sheetStatus, driveLink);
     } else {
       const tripData = analysis.trip_data || {
         odo_start: null,
@@ -342,6 +385,9 @@ async function handleImageEvent(event: any, env: Env): Promise<void> {
         note: null,
       };
       const record = buildTripRecord(tripData, env);
+      if (driveLink) {
+        record.note = record.note ? `${record.note} [Drive]` : "[Drive]";
+      }
 
       try {
         console.log(`[3/4] Appending row to Google Sheet (Trips)...`);
@@ -354,15 +400,26 @@ async function handleImageEvent(event: any, env: Env): Promise<void> {
       }
 
       replyMessageText = formatTripSummaryText(record, sheetStatus);
+      flexMessage = buildTripFlex(record, sheetStatus, driveLink);
     }
 
-    console.log(`[4/4] Replying to LINE user...`);
-    await replyLineMessage(
-      replyToken,
-      [{ type: "text", text: replyMessageText }],
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    console.log(`[4/4] Reply sent successfully!`);
+    console.log(`[4/4] Replying to LINE user with Interactive Flex Message...`);
+    try {
+      await replyLineMessage(
+        replyToken,
+        [flexMessage],
+        env.LINE_CHANNEL_ACCESS_TOKEN
+      );
+      console.log(`[4/4] Flex message reply sent successfully!`);
+    } catch (flexErr) {
+      console.warn("Flex message failed, falling back to text message:", flexErr);
+      await replyLineMessage(
+        replyToken,
+        [{ type: "text", text: replyMessageText }],
+        env.LINE_CHANNEL_ACCESS_TOKEN
+      );
+      console.log(`[4/4] Fallback text message sent successfully!`);
+    }
 
   } catch (err: any) {
     console.error("Error processing image event:", err);

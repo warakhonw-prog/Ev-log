@@ -12,6 +12,7 @@ export interface Env {
   GOOGLE_CLIENT_EMAIL: string;
   GOOGLE_PRIVATE_KEY: string;
   GOOGLE_APPS_SCRIPT_URL?: string; // ทางเลือกเสริม
+  GOOGLE_DRIVE_FOLDER_ID?: string; // Google Drive Folder ID สำหรับเก็บรูปสลิป
 }
 
 export interface TripExtractionResult {
