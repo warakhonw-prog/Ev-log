@@ -3,11 +3,15 @@ import {
   verifyLineSignature,
   fetchLineImageBase64,
   replyLineMessage,
+  pushOrBroadcastLineMessage,
   buildTripFlex,
   buildChargingFlex,
+  buildPeriodReportFlex,
   formatTripSummaryText,
   formatChargingSummaryText,
+  formatPeriodSummaryText,
 } from "./line";
+import { generatePeriodSummary } from "./reports";
 import { analyzeEVImageWithGemini } from "./gemini";
 import {
   buildTripRecord,
@@ -208,7 +212,24 @@ export default {
 
 
 
-    // 3. Health check & Diagnostics Dashboard
+    // 4. API Cron Trigger / Test Endpoint (สั่งส่งสรุปรายสัปดาห์ / รายเดือนทันที)
+    if (request.method === "GET" && url.pathname === "/api/cron/trigger") {
+      const type = (url.searchParams.get("type") || "weekly") as "weekly" | "monthly";
+      try {
+        const result = await sendScheduledReport(type, env);
+        return new Response(JSON.stringify({ ok: true, type, result }), {
+          headers: corsHeaders,
+        });
+      } catch (err: any) {
+        console.error("Manual Cron Trigger error:", err);
+        return new Response(JSON.stringify({ ok: false, error: err.message || String(err) }), {
+          status: 500,
+          headers: corsHeaders,
+        });
+      }
+    }
+
+    // 5. Health check & Diagnostics Dashboard
     if (request.method === "GET" && url.pathname === "/health") {
       const isGeminiOk = !!env.GEMINI_API_KEY;
       const isLineOk = !!(env.LINE_CHANNEL_SECRET && env.LINE_CHANNEL_ACCESS_TOKEN);
@@ -249,6 +270,10 @@ export default {
             <span class="${isLineOk ? "badge-ok" : "badge-no"}">${isLineOk ? "✅ Ready (Flex Enabled)" : "❌ Missing Token/Secret"}</span>
           </div>
           <div class="item">
+            <span>Scheduled Reports (Cron):</span>
+            <span class="badge-ok">✅ Ready (Sun 20:00 & 1st 20:00 TH)</span>
+          </div>
+          <div class="item">
             <span>Google Sheets Sync:</span>
             <span class="${isSheetsOk ? "badge-ok" : "badge-no"}">${isSheetsOk ? "✅ Ready" : "❌ Missing Credentials"}</span>
           </div>
@@ -263,6 +288,13 @@ export default {
           <div class="item">
             <span>Drive Folder ID:</span>
             <span><code>${driveFolder}</code></span>
+          </div>
+          <div style="margin-top: 18px; padding-top: 15px; border-top: 1px solid #334155;">
+            <p style="margin: 0 0 10px 0; font-size: 13px; color: #94a3b8; font-weight: bold;">⚡ ทดสอบส่งรายงานสรุปเข้า LINE ทันที:</p>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <a href="/api/cron/trigger?type=weekly" target="_blank" style="display: inline-block; background: #0284c7; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: bold;">🚀 ยิงรายงาน Weekly Digest</a>
+              <a href="/api/cron/trigger?type=monthly" target="_blank" style="display: inline-block; background: #0d9488; color: #ffffff; padding: 7px 12px; border-radius: 6px; font-size: 12px; text-decoration: none; font-weight: bold;">🏆 ยิงรายงาน Monthly Digest</a>
+            </div>
           </div>
           <div style="margin-top: 20px; font-size: 14px; color: #cbd5e1; line-height: 1.6;">
             <p><strong>📊 Live Web Dashboard:</strong> <a href="${url.origin}/" target="_blank">Open Dashboard</a></p>
@@ -312,6 +344,15 @@ export default {
 
     // 404
     return new Response("Not Found", { status: 404 });
+  },
+
+  async scheduled(
+    event: any,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    console.log(`[Cron Trigger] Fired with cron: "${event.cron}" at ${new Date().toISOString()}`);
+    ctx.waitUntil(handleScheduledReport(event.cron || "", env));
   },
 };
 
@@ -462,4 +503,55 @@ async function handleTextEvent(event: any, env: Env): Promise<void> {
     [{ type: "text", text: guide }],
     env.LINE_CHANNEL_ACCESS_TOKEN
   );
+}
+
+/**
+ * จัดการเมื่อ Cloudflare Cron Trigger ทำงานตามตารางเวลา
+ */
+async function handleScheduledReport(cronPattern: string, env: Env): Promise<void> {
+  // ตรวจสอบว่าเป็นรอบเดือนหรือรอบสัปดาห์
+  // "0 13 1 * *" -> monthly
+  // "0 13 * * 0" -> weekly
+  const isMonthly = cronPattern.includes(" 1 * *") || cronPattern.startsWith("0 13 1 ");
+  const type: "weekly" | "monthly" = isMonthly ? "monthly" : "weekly";
+  console.log(`[Scheduled Report] Triggered for pattern '${cronPattern}', detected type: ${type}`);
+  await sendScheduledReport(type, env);
+}
+
+/**
+ * ดึงข้อมูลจาก Sheets คำนวณสรุปสถิติรอบสัปดาห์หรือเดือน และส่ง Flex Message เข้า LINE
+ */
+export async function sendScheduledReport(
+  type: "weekly" | "monthly",
+  env: Env
+): Promise<{ ok: boolean; summary: any; method: string; fallbackText?: boolean }> {
+  console.log(`[Scheduled Report] Fetching sheet data for ${type} summary...`);
+  const payload = await fetchDashboardDataFromSheets(env);
+  const rows = payload.data?.rows || [];
+
+  const summary = generatePeriodSummary(rows, type);
+  console.log(
+    `[Scheduled Report] Summary: ${summary.title} | ${summary.dateRangeStr} | km=${summary.totalKm} | savings=฿${summary.savingsThb}`
+  );
+
+  const flexMessage = buildPeriodReportFlex(summary);
+  const textFallback = formatPeriodSummaryText(summary);
+
+  try {
+    const res = await pushOrBroadcastLineMessage(
+      [flexMessage],
+      env.LINE_CHANNEL_ACCESS_TOKEN,
+      env.LINE_USER_ID
+    );
+    console.log(`[Scheduled Report] Flex message successfully dispatched via ${res.method}!`);
+    return { ok: true, summary, method: res.method };
+  } catch (err: any) {
+    console.warn(`[Scheduled Report] Flex message failed, falling back to text:`, err);
+    const res = await pushOrBroadcastLineMessage(
+      [{ type: "text", text: textFallback }],
+      env.LINE_CHANNEL_ACCESS_TOKEN,
+      env.LINE_USER_ID
+    );
+    return { ok: true, summary, method: res.method, fallbackText: true };
+  }
 }

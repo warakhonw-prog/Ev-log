@@ -1,4 +1,4 @@
-import { TripRecord, ChargingRecord } from "./types";
+import { TripRecord, ChargingRecord, PeriodSummary } from "./types";
 
 /**
  * ตรวจสอบความถูกต้องของ LINE Webhook Signature ด้วย HMAC-SHA256 (Web Crypto API)
@@ -88,6 +88,65 @@ export async function replyLineMessage(
     console.error(`LINE Reply Error (${res.status}): ${errorText}`);
     throw new Error(`LINE Reply Error (${res.status}): ${errorText}`);
   }
+}
+
+/**
+ * ส่งข้อความ Push (เฉพาะบุคคล) หรือ Broadcast (ทุกคนที่เป็นเพื่อนกับบอท) สำหรับ Cron Scheduled Reports
+ */
+export async function pushOrBroadcastLineMessage(
+  messages: any[],
+  accessToken: string,
+  userId?: string
+): Promise<{ success: boolean; method: "push" | "broadcast"; response?: any }> {
+  // 1. ถ้ามี userId ให้ลอง Push ก่อน
+  if (userId && userId.trim()) {
+    try {
+      console.log(`[LINE Push] Attempting push to user: ${userId}`);
+      const pushRes = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          to: userId.trim(),
+          messages,
+        }),
+      });
+
+      if (pushRes.ok) {
+        console.log(`[LINE Push] Push message sent successfully to ${userId}`);
+        return { success: true, method: "push" };
+      } else {
+        const err = await pushRes.text();
+        console.warn(`[LINE Push] Push failed (${pushRes.status}): ${err}. Falling back to broadcast...`);
+      }
+    } catch (pushErr) {
+      console.warn("[LINE Push] Exception during push, falling back to broadcast:", pushErr);
+    }
+  }
+
+  // 2. Broadcast ไปยังผู้ติดตามทั้งหมดของบอท
+  console.log(`[LINE Broadcast] Sending broadcast report message to all followers...`);
+  const bcastRes = await fetch("https://api.line.me/v2/bot/message/broadcast", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      messages,
+    }),
+  });
+
+  if (!bcastRes.ok) {
+    const bcastErr = await bcastRes.text();
+    console.error(`[LINE Broadcast] Broadcast failed (${bcastRes.status}): ${bcastErr}`);
+    throw new Error(`LINE Broadcast Error (${bcastRes.status}): ${bcastErr}`);
+  }
+
+  console.log(`[LINE Broadcast] Broadcast sent successfully!`);
+  return { success: true, method: "broadcast" };
 }
 
 export function formatTripSummaryText(record: TripRecord, sheetStatus: string = "✅ บันทึกลง Google Sheets แล้ว"): string {
@@ -502,6 +561,231 @@ export function buildChargingFlex(
           {
             type: "text",
             text: "EV Log Bot • Cloudflare Worker & Google Sheets",
+            size: "xxs",
+            color: "#94a3b8",
+            align: "center",
+            margin: "xs",
+          },
+        ],
+      },
+    },
+  };
+}
+
+/**
+ * แปลงสรุปรายงานประจำช่วงเวลาเป็นข้อความตัวอักษรธรรมดา (Fallback)
+ */
+export function formatPeriodSummaryText(summary: PeriodSummary): string {
+  const isWeekly = summary.periodType === "weekly";
+  const headerIcon = isWeekly ? "📊" : "🏆";
+  const label = isWeekly ? "สรุปประจำสัปดาห์ (Weekly Digest)" : "สรุปประจำเดือน (Monthly Digest)";
+
+  return (
+    `${headerIcon} [${label}]\n` +
+    `📅 ช่วงเวลา: ${summary.dateRangeStr}\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🛣️ ระยะทางวิ่งรวม: ${summary.totalKm.toLocaleString()} กม.\n` +
+    `💰 ประหยัดค่าน้ำมัน: ฿${summary.savingsThb.toLocaleString()} (เทียบเบนซิน 14 กม./ลิตร)\n` +
+    `⚡ อัตราสิ้นเปลืองเฉลี่ย: ${summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-"}\n` +
+    `🚗 อัตราค่าเดินทาง: ฿${summary.costPerKmThb.toFixed(2)} / กม.\n` +
+    `🔌 พลังงานชาร์จรวม: ${summary.totalChargedKwh.toLocaleString()} kWh (฿${summary.totalCostThb.toLocaleString()})\n` +
+    `  • 🏠 ชาร์จบ้าน (AC): ${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})\n` +
+    `  • ⚡ ตู้ชาร์จด่วน (DC): ${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})\n` +
+    `⏱️ จำนวนเที่ยวขับ: ${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} นาที)\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `📊 ดูแดชบอร์ดฉบับเต็ม:\nhttps://ev-log-bot.eb-book.workers.dev/`
+  );
+}
+
+/**
+ * สร้าง Interactive Flex Message สำหรับรายงานสรุปประจำสัปดาห์ (Weekly) และประจำเดือน (Monthly)
+ */
+export function buildPeriodReportFlex(summary: PeriodSummary): any {
+  const isWeekly = summary.periodType === "weekly";
+  const headerBg = isWeekly ? "#1e1b4b" : "#064e3b"; // Dark Indigo vs Dark Emerald
+  const accentColor = isWeekly ? "#38bdf8" : "#34d399";
+  const badgeText = isWeekly ? "📅 สรุปประจำสัปดาห์" : "🏆 สรุปประจำเดือน";
+  const badgeBg = isWeekly ? "#312e81" : "#065f46";
+
+  const rows = [
+    { name: "🎯 อัตราสิ้นเปลืองเฉลี่ย", val: summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-" },
+    { name: "🚗 ต้นทุนการเดินทาง", val: `฿${summary.costPerKmThb.toFixed(2)} / กม.` },
+    { name: "🔌 พลังงานชาร์จรวม", val: `${summary.totalChargedKwh.toLocaleString()} kWh` },
+    { name: "💸 ยอดค่าชาร์จไฟรวม", val: `฿${summary.totalCostThb.toLocaleString()}` },
+    { name: "🏠 ชาร์จบ้าน (AC)", val: `${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})` },
+    { name: "⚡ ตู้ชาร์จด่วน (DC)", val: `${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})` },
+    { name: "🚗 สถิติเที่ยวขับขี่", val: `${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} น.)` },
+  ];
+
+  if (summary.odoStart && summary.odoEnd) {
+    rows.push({
+      name: "🛣️ เลขไมล์ช่วงนี้",
+      val: `${summary.odoStart.toLocaleString()} ➔ ${summary.odoEnd.toLocaleString()} กม.`,
+    });
+  }
+
+  return {
+    type: "flex",
+    altText: `${badgeText}: วิ่ง ${summary.totalKm.toLocaleString()} กม. ประหยัดน้ำมัน ฿${summary.savingsThb.toLocaleString()}`,
+    contents: {
+      type: "bubble",
+      size: "giga",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: headerBg,
+        paddingAll: "lg",
+        spacing: "xs",
+        contents: [
+          {
+            type: "box",
+            layout: "horizontal",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                backgroundColor: badgeBg,
+                cornerRadius: "md",
+                paddingStart: "sm",
+                paddingEnd: "sm",
+                paddingTop: "xs",
+                paddingBottom: "xs",
+                contents: [
+                  {
+                    type: "text",
+                    text: badgeText,
+                    color: accentColor,
+                    size: "xxs",
+                    weight: "bold",
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: "text",
+            text: isWeekly ? "EV Weekly Executive Digest" : "EV Monthly Executive Digest",
+            weight: "bold",
+            size: "md",
+            color: "#ffffff",
+            margin: "sm",
+          },
+          {
+            type: "text",
+            text: `ช่วงเวลา: ${summary.dateRangeStr}`,
+            size: "xxs",
+            color: "#94a3b8",
+          },
+        ],
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        paddingAll: "lg",
+        spacing: "md",
+        backgroundColor: "#ffffff",
+        contents: [
+          // Hero Metrics 2 ช่อง
+          {
+            type: "box",
+            layout: "horizontal",
+            spacing: "md",
+            contents: [
+              {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#f8fafc",
+                paddingAll: "md",
+                cornerRadius: "md",
+                borderColor: "#e2e8f0",
+                borderWidth: "light",
+                flex: 1,
+                contents: [
+                  { type: "text", text: "🛣️ ระยะทางรวม", size: "xxs", color: "#64748b" },
+                  {
+                    type: "text",
+                    text: `${summary.totalKm.toLocaleString()}`,
+                    size: "xl",
+                    weight: "bold",
+                    color: "#0f172a",
+                    margin: "xs",
+                  },
+                  { type: "text", text: "กิโลเมตร", size: "xxs", color: "#94a3b8" },
+                ],
+              },
+              {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: isWeekly ? "#f0fdf4" : "#ecfdf5",
+                paddingAll: "md",
+                cornerRadius: "md",
+                borderColor: isWeekly ? "#bbf7d0" : "#a7f3d0",
+                borderWidth: "light",
+                flex: 1,
+                contents: [
+                  { type: "text", text: "💰 ประหยัดค่าน้ำมัน", size: "xxs", color: "#166534" },
+                  {
+                    type: "text",
+                    text: `฿${summary.savingsThb.toLocaleString()}`,
+                    size: "xl",
+                    weight: "bold",
+                    color: "#15803d",
+                    margin: "xs",
+                  },
+                  { type: "text", text: "เทียบเบนซิน 14 km/L", size: "xxs", color: "#16a34a" },
+                ],
+              },
+            ],
+          },
+          { type: "separator" },
+          // Key Performance Indicators Rows
+          {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: rows.map((r) => ({
+              type: "box",
+              layout: "baseline",
+              spacing: "sm",
+              contents: [
+                { type: "text", text: r.name, color: "#64748b", size: "xs", flex: 5 },
+                { type: "text", text: r.val, color: "#0f172a", size: "xs", flex: 7, weight: "bold", align: "end", wrap: true },
+              ],
+            })),
+          },
+        ],
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "md",
+        backgroundColor: "#f8fafc",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: headerBg,
+            height: "sm",
+            action: {
+              type: "uri",
+              label: "📊 เปิดดูแดชบอร์ดฉบับเต็ม",
+              uri: "https://ev-log-bot.eb-book.workers.dev/",
+            },
+          },
+          {
+            type: "button",
+            style: "secondary",
+            height: "sm",
+            action: {
+              type: "uri",
+              label: "📈 ดูรายงานเชิงลึก (Reports View)",
+              uri: "https://ev-log-bot.eb-book.workers.dev/reports",
+            },
+          },
+          {
+            type: "text",
+            text: "ระบบรายงานอัตโนมัติ • Cloudflare Workers Cron",
             size: "xxs",
             color: "#94a3b8",
             align: "center",

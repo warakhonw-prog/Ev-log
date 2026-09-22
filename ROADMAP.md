@@ -3,7 +3,7 @@
 > **บันทึกแผนงานสำหรับเรียกดูและเลือกพัฒนาในอนาคต**  
 > *วันที่อัปเดต:* 22 กันยายน 2026  
 > *ยานพาหนะหลัก:* XPENG G6 Standard Range (แบตเตอรี่ 68.5 kWh)  
-> *สถานะระบบปัจจุบัน:* Cloudflare Worker + Google Sheets API + Google Drive Storage + Interactive Flex Message + Gemini 3.6 Flash + Responsive Web Dashboard (Light/Dark Mode, 2x2 Data Viz Hub)
+> *สถานะระบบปัจจุบัน:* Cloudflare Worker (Cron Triggers Active) + Google Sheets API + Google Drive Storage + Interactive Flex Message + Gemini 3.6 Flash + Responsive Web Dashboard (Light/Dark Mode, 2x2 Data Viz Hub)
 
 ---
 
@@ -65,8 +65,10 @@ Smart LINE Bot       Telemetry Pro                   Wallbox IoT         Expense
    - มีปุ่ม Interactive Quick Actions 2 ปุ่ม:
      - `[📊 เปิดดูแดชบอร์ด]` ลิงก์ตรงเข้าสู่ Web Dashboard
      - `[📁 ดูรูปใน Google Drive]` เปิดดูไฟล์รูปภาพสลิปที่เพิ่งบันทึก
-3. ⏳ **[รอดำเนินการ] Weekly / Monthly Scheduled Report via LINE**:
-   - ตั้งเวลาแจ้งเตือนสรุปประจำสัปดาห์ (เช่น ทุกคืนวันอาทิตย์) หรือประจำเดือน แจ้งยอดระยะทางที่วิ่งได้ เงินที่ประหยัดได้เทียบกับน้ำมัน ผ่าน Cloudflare Cron Triggers
+3. ✅ **[เสร็จแล้ว] Weekly / Monthly Scheduled Report via LINE**:
+   - ตั้งเวลาแจ้งเตือนสรุปประจำสัปดาห์ (ทุกคืนวันอาทิตย์ เวลา 20:00 น. ตามเวลาไทย) และสรุปประจำเดือน (ทุกวันที่ 1 เวลา 20:00 น.) ผ่าน Cloudflare Cron Triggers (`0 13 * * SUN` และ `0 13 1 * *`)
+   - ส่งเป็นการ์ด Interactive Flex Message สรุปยอดระยะทาง, พลังงาน kWh, ยอดค่าไฟ, อัตราสิ้นเปลือง Wh/km, เงินที่ประหยัดได้เทียบเบนซิน พร้อมปุ่มกดดูแดชบอร์ด
+   - รองรับการยิงทดสอบแบบ Manual ผ่าน API Endpoint (`/api/cron/trigger?type=weekly` / `type=monthly`) และหน้า `/health`
 
 ---
 
@@ -137,8 +139,8 @@ Smart LINE Bot       Telemetry Pro                   Wallbox IoT         Expense
 | **ผลตอบแทนความคุ้มค่า (ROI)** | 🥇 สูงสุด ประหยัดเวลา | รักษามูลค่าตัวรถ | ลดค่าไฟบ้านตรงจุด | เหมาะกับมีรถหลายคัน |
 | **ระยะเวลาพัฒนา** | ⚡ 1 - 2 สัปดาห์ | 2 - 3 สัปดาห์ | 2 - 3 สัปดาห์ | ⚡ 1 - 2 สัปดาห์ |
 | **สิ่งที่ต้องเตรียมเพิ่ม** | แคปภาพบิลจากแอป | ข้อมูลชาร์จสม่ำเสมอ | อัตราค่าไฟ TOU ที่บ้าน | ข้อมูลสเปกรถคันที่ 2 |
-| **ลำดับความสำคัญที่แนะนำ** | **อันดับ 1 (กำลังดำเนินการ)** | **อันดับ 2** | **อันดับ 3** | **อันดับ 4** |
-| **สถานะความคืบหน้า** | 🚀 **ทำแล้ว 67% (2/3 ฟีเจอร์)** | ⏳ แผนในอนาคต (Backlog) | ⏳ แผนในอนาคต (Backlog) | ⏳ แผนในอนาคต (Backlog) |
+| **ลำดับความสำคัญที่แนะนำ** | **อันดับ 1 (สำเร็จครบแล้ว)** | **อันดับ 2** | **อันดับ 3** | **อันดับ 4** |
+| **สถานะความคืบหน้า** | 🏆 **สำเร็จสมบูรณ์ 100% (3/3 ฟีเจอร์)** | ⏳ แผนในอนาคต (Backlog) | ⏳ แผนในอนาคต (Backlog) | ⏳ แผนในอนาคต (Backlog) |
 
 ---
 

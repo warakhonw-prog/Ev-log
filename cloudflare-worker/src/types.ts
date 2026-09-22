@@ -13,6 +13,7 @@ export interface Env {
   GOOGLE_PRIVATE_KEY: string;
   GOOGLE_APPS_SCRIPT_URL?: string; // ทางเลือกเสริม
   GOOGLE_DRIVE_FOLDER_ID?: string; // Google Drive Folder ID สำหรับเก็บรูปสลิป
+  LINE_USER_ID?: string; // เจาะจงส่งเฉพาะบุคคล (หากไม่ใส่จะ broadcast)
 }
 
 export interface TripExtractionResult {
@@ -78,4 +79,25 @@ export interface ChargingRecord {
   cost_grid_thb: number | "";
   location: string;
   note: string;
+}
+
+export interface PeriodSummary {
+  periodType: "weekly" | "monthly";
+  title: string;
+  dateRangeStr: string;
+  totalTrips: number;
+  totalKm: number;
+  totalDurationMin: number;
+  avgConsumptionWhKm: number;
+  totalChargedKwh: number;
+  totalCostThb: number;
+  homeKwh: number;
+  homeCostThb: number;
+  dcKwh: number;
+  dcCostThb: number;
+  costPerKmThb: number;
+  gasolineEquivCostThb: number;
+  savingsThb: number;
+  odoStart: number | null;
+  odoEnd: number | null;
 }
