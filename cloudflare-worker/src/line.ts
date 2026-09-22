@@ -585,10 +585,10 @@ export function formatPeriodSummaryText(summary: PeriodSummary): string {
     `📅 ช่วงเวลา: ${summary.dateRangeStr}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `🛣️ ระยะทางวิ่งรวม: ${summary.totalKm.toLocaleString()} กม.\n` +
-    `💰 ประหยัดค่าน้ำมัน: ฿${summary.savingsThb.toLocaleString()} (เทียบเบนซิน 14 กม./ลิตร)\n` +
-    `⚡ อัตราสิ้นเปลืองเฉลี่ย: ${summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-"}\n` +
-    `🚗 อัตราค่าเดินทาง: ฿${summary.costPerKmThb.toFixed(2)} / กม.\n` +
-    `🔌 พลังงานชาร์จรวม: ${summary.totalChargedKwh.toLocaleString()} kWh (฿${summary.totalCostThb.toLocaleString()})\n` +
+    `⚡ ยอดค่าชาร์จไฟ${isWeekly ? "รอบสัปดาห์" : "รอบเดือน"}: ฿${summary.totalCostThb.toLocaleString()} (${summary.totalChargedKwh.toLocaleString()} kWh)\n` +
+    `💰 ประหยัดเทียบน้ำมัน: ฿${summary.savingsThb.toLocaleString()} (เทียบเบนซิน 14 กม./ลิตร)\n` +
+    `🎯 อัตราสิ้นเปลืองเฉลี่ย: ${summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-"}\n` +
+    `🚗 ต้นทุนค่าเดินทาง: ฿${summary.costPerKmThb.toFixed(2)} / กม.\n` +
     `  • 🏠 ชาร์จบ้าน (AC): ${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})\n` +
     `  • ⚡ ตู้ชาร์จด่วน (DC): ${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})\n` +
     `⏱️ จำนวนเที่ยวขับ: ${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} นาที)\n` +
@@ -610,10 +610,9 @@ export function buildPeriodReportFlex(summary: PeriodSummary): any {
   const rows = [
     { name: "🎯 อัตราสิ้นเปลืองเฉลี่ย", val: summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-" },
     { name: "🚗 ต้นทุนการเดินทาง", val: `฿${summary.costPerKmThb.toFixed(2)} / กม.` },
-    { name: "🔌 พลังงานชาร์จรวม", val: `${summary.totalChargedKwh.toLocaleString()} kWh` },
-    { name: "💸 ยอดค่าชาร์จไฟรวม", val: `฿${summary.totalCostThb.toLocaleString()}` },
     { name: "🏠 ชาร์จบ้าน (AC)", val: `${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})` },
     { name: "⚡ ตู้ชาร์จด่วน (DC)", val: `${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})` },
+    { name: "💰 ประหยัดเทียบเบนซิน", val: `฿${summary.savingsThb.toLocaleString()} (14 km/L)` },
     { name: "🚗 สถิติเที่ยวขับขี่", val: `${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} น.)` },
   ];
 
@@ -626,7 +625,7 @@ export function buildPeriodReportFlex(summary: PeriodSummary): any {
 
   return {
     type: "flex",
-    altText: `${badgeText}: วิ่ง ${summary.totalKm.toLocaleString()} กม. ประหยัดน้ำมัน ฿${summary.savingsThb.toLocaleString()}`,
+    altText: `${badgeText}: วิ่ง ${summary.totalKm.toLocaleString()} กม. ยอดค่าชาร์จ ฿${summary.totalCostThb.toLocaleString()}`,
     contents: {
       type: "bubble",
       size: "giga",
@@ -716,23 +715,34 @@ export function buildPeriodReportFlex(summary: PeriodSummary): any {
               {
                 type: "box",
                 layout: "vertical",
-                backgroundColor: isWeekly ? "#f0fdf4" : "#ecfdf5",
+                backgroundColor: isWeekly ? "#eff6ff" : "#f0fdf4",
                 paddingAll: "md",
                 cornerRadius: "md",
-                borderColor: isWeekly ? "#bbf7d0" : "#a7f3d0",
+                borderColor: isWeekly ? "#bfdbfe" : "#bbf7d0",
                 borderWidth: "light",
                 flex: 1,
                 contents: [
-                  { type: "text", text: "💰 ประหยัดค่าน้ำมัน", size: "xxs", color: "#166534" },
                   {
                     type: "text",
-                    text: `฿${summary.savingsThb.toLocaleString()}`,
+                    text: isWeekly ? "⚡ ค่าชาร์จสัปดาห์นี้" : "⚡ ค่าชาร์จเดือนนี้",
+                    size: "xxs",
+                    color: isWeekly ? "#1e40af" : "#166534",
+                    weight: "bold",
+                  },
+                  {
+                    type: "text",
+                    text: `฿${summary.totalCostThb.toLocaleString()}`,
                     size: "xl",
                     weight: "bold",
-                    color: "#15803d",
+                    color: isWeekly ? "#1d4ed8" : "#15803d",
                     margin: "xs",
                   },
-                  { type: "text", text: "เทียบเบนซิน 14 km/L", size: "xxs", color: "#16a34a" },
+                  {
+                    type: "text",
+                    text: `รวม ${summary.totalChargedKwh.toLocaleString()} kWh`,
+                    size: "xxs",
+                    color: isWeekly ? "#3b82f6" : "#16a34a",
+                  },
                 ],
               },
             ],
