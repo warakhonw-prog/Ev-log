@@ -118,6 +118,10 @@ export function generatePeriodSummary(
   let odoStart: number | null = null;
   let odoEnd: number | null = null;
 
+  let totalCharges = 0;
+  let acCharges = 0;
+  let dcCharges = 0;
+
   for (const r of filteredRows) {
     // บันทึก ODO
     if (r.odoStart && r.odoStart > 0) {
@@ -141,28 +145,32 @@ export function generatePeriodSummary(
       }
     }
 
-    if (r.kind === "charge" || (r.kwh > 0 || r.net > 0)) {
+    // คำนวณเฉพาะแถวที่เป็นการชาร์จไฟเท่านั้น (r.kind === "charge") เพื่อไม่ให้ปนกับทริปขับรถ
+    if (r.kind === "charge") {
+      totalCharges += 1;
       const kwh = r.kwh || 0;
       const cost = r.net || 0;
 
       totalChargedKwh += kwh;
       totalCostThb += cost;
 
-      const noteLower = (r.note || "").toLowerCase();
+      const text = ((r.note || "") + " " + (r.kind || "")).toLowerCase();
       const isDc =
-        noteLower.includes("dc") ||
-        noteLower.includes("pea") ||
-        noteLower.includes("ptt") ||
-        noteLower.includes("charge+") ||
-        noteLower.includes("station") ||
-        noteLower.includes("ea") ||
-        noteLower.includes("evolt") ||
-        noteLower.includes("ตู้");
+        text.includes("dc") ||
+        text.includes("เร็ว") ||
+        text.includes("fast") ||
+        text.includes("pea") ||
+        text.includes("ptt") ||
+        text.includes("ea ") ||
+        text.includes("station") ||
+        text.includes("charge+");
 
       if (isDc) {
+        dcCharges += 1;
         dcKwh += kwh;
         dcCostThb += cost;
       } else {
+        acCharges += 1;
         homeKwh += kwh;
         homeCostThb += cost;
       }
@@ -196,6 +204,9 @@ export function generatePeriodSummary(
     avgConsumptionWhKm,
     totalChargedKwh: Math.round(totalChargedKwh * 10) / 10,
     totalCostThb: Math.round(totalCostThb),
+    totalCharges,
+    acCharges,
+    dcCharges,
     homeKwh: Math.round(homeKwh * 10) / 10,
     homeCostThb: Math.round(homeCostThb),
     dcKwh: Math.round(dcKwh * 10) / 10,

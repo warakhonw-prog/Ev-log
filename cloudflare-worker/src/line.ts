@@ -589,8 +589,8 @@ export function formatPeriodSummaryText(summary: PeriodSummary): string {
     `💰 ประหยัดเทียบน้ำมัน: ฿${summary.savingsThb.toLocaleString()} (เทียบเบนซิน 14 กม./ลิตร)\n` +
     `🎯 อัตราสิ้นเปลืองเฉลี่ย: ${summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-"}\n` +
     `🚗 ต้นทุนค่าเดินทาง: ฿${summary.costPerKmThb.toFixed(2)} / กม.\n` +
-    `  • 🏠 ชาร์จบ้าน (AC): ${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})\n` +
-    `  • ⚡ ตู้ชาร์จด่วน (DC): ${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})\n` +
+    `  • 🏠 ชาร์จบ้าน (AC): ${summary.homeKwh.toLocaleString()} kWh (${summary.acCharges} ครั้ง) • ฿${summary.homeCostThb.toLocaleString()}\n` +
+    `  • ⚡ ตู้ชาร์จด่วน (DC): ${summary.dcKwh.toLocaleString()} kWh (${summary.dcCharges} ครั้ง) • ฿${summary.dcCostThb.toLocaleString()}\n` +
     `⏱️ จำนวนเที่ยวขับ: ${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} นาที)\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `📊 ดูแดชบอร์ดฉบับเต็ม:\nhttps://ev-log-bot.eb-book.workers.dev/`
@@ -610,8 +610,8 @@ export function buildPeriodReportFlex(summary: PeriodSummary): any {
   const rows = [
     { name: "🎯 อัตราสิ้นเปลืองเฉลี่ย", val: summary.avgConsumptionWhKm > 0 ? `${summary.avgConsumptionWhKm} Wh/km` : "-" },
     { name: "🚗 ต้นทุนการเดินทาง", val: `฿${summary.costPerKmThb.toFixed(2)} / กม.` },
-    { name: "🏠 ชาร์จบ้าน (AC)", val: `${summary.homeKwh.toLocaleString()} kWh (฿${summary.homeCostThb.toLocaleString()})` },
-    { name: "⚡ ตู้ชาร์จด่วน (DC)", val: `${summary.dcKwh.toLocaleString()} kWh (฿${summary.dcCostThb.toLocaleString()})` },
+    { name: "🏠 ชาร์จบ้าน (AC)", val: `${summary.homeKwh.toLocaleString()} kWh (${summary.acCharges} ครั้ง) • ฿${summary.homeCostThb.toLocaleString()}` },
+    { name: "⚡ ตู้ชาร์จด่วน (DC)", val: `${summary.dcKwh.toLocaleString()} kWh (${summary.dcCharges} ครั้ง) • ฿${summary.dcCostThb.toLocaleString()}` },
     { name: "💰 ประหยัดเทียบเบนซิน", val: `฿${summary.savingsThb.toLocaleString()} (14 km/L)` },
     { name: "🚗 สถิติเที่ยวขับขี่", val: `${summary.totalTrips} เที่ยว (${Math.round(summary.totalDurationMin / 60)} ชม. ${summary.totalDurationMin % 60} น.)` },
   ];
@@ -739,7 +739,7 @@ export function buildPeriodReportFlex(summary: PeriodSummary): any {
                   },
                   {
                     type: "text",
-                    text: `รวม ${summary.totalChargedKwh.toLocaleString()} kWh`,
+                    text: `รวม ${summary.totalChargedKwh.toLocaleString()} kWh (${summary.totalCharges} ครั้ง)`,
                     size: "xxs",
                     color: isWeekly ? "#3b82f6" : "#16a34a",
                   },

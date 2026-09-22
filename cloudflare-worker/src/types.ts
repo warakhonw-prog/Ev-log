@@ -91,6 +91,9 @@ export interface PeriodSummary {
   avgConsumptionWhKm: number;
   totalChargedKwh: number;
   totalCostThb: number;
+  totalCharges: number;
+  acCharges: number;
+  dcCharges: number;
   homeKwh: number;
   homeCostThb: number;
   dcKwh: number;
