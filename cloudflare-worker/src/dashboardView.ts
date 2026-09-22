@@ -888,6 +888,47 @@ body {
   color: var(--text-muted);
 }
 
+/* Data Visualization 2x2 Hub (Mockup 1) */
+.viz-grid-2x2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .viz-grid-2x2 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.scatter-dot {
+  transition: r 0.15s ease, fill-opacity 0.15s ease;
+  cursor: pointer;
+}
+.scatter-dot:hover {
+  r: 7.5;
+  fill-opacity: 1;
+}
+
+.line-dot {
+  transition: r 0.15s ease, fill 0.15s ease;
+  cursor: pointer;
+}
+.line-dot:hover {
+  r: 6.5;
+  fill: var(--primary);
+}
+
+.donut-segment {
+  transition: stroke-width 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+.donut-segment:hover {
+  stroke-width: 25;
+  opacity: 0.9;
+}
+
 /* Analytics Split Grid */
 .analytics-split-grid {
   display: grid;
@@ -2320,15 +2361,384 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     bindViewEvents();
   }
 
+  function generateEfficiencyLineChart(tripRows) {
+    var trips = (tripRows || []).filter(function(r) {
+      return (r.km > 0 || (r.odoEnd && r.odoStart && r.odoEnd > r.odoStart)) && (r.cons > 0 || r.kwh > 0);
+    });
+    trips.sort(function(a, b) {
+      var da = (a.iso || "") + " " + (a.time || "");
+      var db = (b.iso || "") + " " + (b.time || "");
+      return da.localeCompare(db);
+    });
+    var recent = trips.slice(-14);
+    if (recent.length < 2) {
+      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> แนวโน้มอัตราสิ้นเปลือง (Efficiency Trend)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลการเดินทางยังไม่เพียงพอ</div></div>';
+    }
+
+    var dataPoints = [];
+    recent.forEach(function(t) {
+      var dist = t.km || (t.odoEnd && t.odoStart ? (t.odoEnd - t.odoStart) : 0);
+      var wh = 0;
+      if (t.cons && t.cons > 0) {
+        wh = Math.round(t.cons * 10);
+      } else if (t.kwh && dist > 0) {
+        wh = Math.round((t.kwh * 1000) / dist);
+      }
+      if (wh >= 60 && wh <= 300) {
+        var dLabel = t.iso ? t.iso.substring(5).replace("-", "/") : "-";
+        dataPoints.push({
+          date: t.iso || "-",
+          time: t.time || "",
+          label: dLabel,
+          dist: dist,
+          wh: wh
+        });
+      }
+    });
+
+    if (dataPoints.length < 2) {
+      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> แนวโน้มอัตราสิ้นเปลือง (Efficiency Trend)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลการเดินทางยังไม่เพียงพอ</div></div>';
+    }
+
+    var svgW = 460;
+    var svgH = 200;
+    var padLeft = 46;
+    var padRight = 24;
+    var padTop = 26;
+    var padBottom = 32;
+    var plotW = svgW - padLeft - padRight;
+    var plotH = svgH - padTop - padBottom;
+
+    var minWh = 80;
+    var maxWh = 220;
+    var rangeWh = maxWh - minWh;
+
+    function getX(i) {
+      return padLeft + (i / (dataPoints.length - 1)) * plotW;
+    }
+    function getY(wh) {
+      var clamped = Math.max(minWh, Math.min(maxWh, wh));
+      return padTop + (1 - ((clamped - minWh) / rangeWh)) * plotH;
+    }
+
+    var yTicks = [100, 140, 180, 220];
+    var gridSvg = yTicks.map(function(val) {
+      var y = getY(val);
+      var isTarget = (val === 140);
+      var lineStyle = isTarget ? 'stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4,3"' : 'stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3" opacity="0.6"';
+      var textFill = isTarget ? 'fill="var(--amber)" font-weight="600"' : 'fill="var(--text-muted)" font-size="10"';
+      return '<line x1="' + padLeft + '" y1="' + y + '" x2="' + (svgW - padRight) + '" y2="' + y + '" ' + lineStyle + ' />' +
+        '<text x="' + (padLeft - 6) + '" y="' + (y + 3) + '" font-size="9.5" font-family="JetBrains Mono" ' + textFill + ' text-anchor="end">' + val + '</text>' +
+        (isTarget ? '<text x="' + (padLeft + 6) + '" y="' + (y - 5) + '" font-size="9" font-family="Anuphan" fill="var(--amber)" text-anchor="start" font-weight="600">เป้าหมาย 140 Wh/km</text>' : '');
+    }).join("");
+
+    var pts = dataPoints.map(function(p, i) {
+      return getX(i).toFixed(1) + ',' + getY(p.wh).toFixed(1);
+    });
+    var baseY = getY(minWh);
+    var firstX = getX(0).toFixed(1);
+    var lastX = getX(dataPoints.length - 1).toFixed(1);
+    var areaPoly = firstX + ',' + baseY + ' ' + pts.join(' ') + ' ' + lastX + ',' + baseY;
+
+    var minPtIdx = 0, maxPtIdx = 0;
+    dataPoints.forEach(function(p, i) {
+      if (p.wh < dataPoints[minPtIdx].wh) minPtIdx = i;
+      if (p.wh > dataPoints[maxPtIdx].wh) maxPtIdx = i;
+    });
+
+    var lastDisplayedLabel = "";
+    var dotsSvg = dataPoints.map(function(p, i) {
+      var cx = getX(i).toFixed(1);
+      var cy = getY(p.wh).toFixed(1);
+      var showLabel = (i === 0 || i === dataPoints.length - 1 || (i % 3 === 0 && p.label !== lastDisplayedLabel));
+      if (showLabel) lastDisplayedLabel = p.label;
+      var labelSvg = showLabel ?
+        '<text x="' + cx + '" y="' + (svgH - 12) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="middle">' + p.label + '</text>' : '';
+      var isKeyPoint = (i === 0 || i === dataPoints.length - 1 || i === minPtIdx || i === maxPtIdx || i % 4 === 0);
+      var valSvg = isKeyPoint ?
+        '<text x="' + cx + '" y="' + (cy - 7) + '" font-size="9" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + p.wh + '</text>' : '';
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="4" fill="var(--surface)" stroke="var(--primary)" stroke-width="2.2" class="line-dot">' +
+        '<title>' + p.date + ' ' + p.time + ' | ' + p.wh + ' Wh/km (' + p.dist.toFixed(1) + ' km)</title>' +
+        '</circle>' + valSvg + labelSvg;
+    }).join("");
+
+    var avgWh = Math.round(dataPoints.reduce(function(acc, p) { return acc + p.wh; }, 0) / dataPoints.length);
+
+    return '<div class="card">' +
+      '<div class="card-header">' +
+        '<div>' +
+          '<div class="card-title">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>' +
+            ' แนวโน้มอัตราสิ้นเปลือง (Efficiency Trend)' +
+          '</div>' +
+          '<div class="card-subtitle">อัตราการใช้พลังงาน (Wh/km) รายทริป • ค่าเฉลี่ย ' + avgWh + ' Wh/km</div>' +
+        '</div>' +
+        '<span class="badge badge-sky">' + dataPoints.length + ' ทริปล่าสุด</span>' +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+        '<svg width="100%" height="200" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="max-width:100%;min-width:320px;display:block;">' +
+          '<defs>' +
+            '<linearGradient id="effGrad" x1="0" y1="0" x2="0" y2="1">' +
+              '<stop offset="0%" stop-color="#0284C7" stop-opacity="0.32" />' +
+              '<stop offset="100%" stop-color="#0284C7" stop-opacity="0.02" />' +
+            '</linearGradient>' +
+          '</defs>' +
+          gridSvg +
+          '<polygon points="' + areaPoly + '" fill="url(#effGrad)" />' +
+          '<polyline points="' + pts.join(' ') + '" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />' +
+          dotsSvg +
+        '</svg>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, costPerKm) {
+    var totalKwh = (acKwh + dcKwh) || 0;
+    var acPct = totalKwh > 0 ? Math.round((acKwh / totalKwh) * 100) : 0;
+    var dcPct = totalKwh > 0 ? (100 - acPct) : 0;
+    var totalCost = acCost + dcCost;
+    var acAvgRate = acKwh > 0 ? (acCost / acKwh) : 0;
+    var dcAvgRate = dcKwh > 0 ? (dcCost / dcKwh) : 0;
+
+    var r = 58;
+    var C = 364.425;
+    var acLen = totalKwh > 0 ? (acPct / 100) * C : 0;
+    var dcLen = totalKwh > 0 ? C - acLen : 0;
+
+    return '<div class="card">' +
+      '<div class="card-header">' +
+        '<div>' +
+          '<div class="card-title">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
+            ' สัดส่วนพลังงานและค่าชาร์จ (Energy Mix)' +
+          '</div>' +
+          '<div class="card-subtitle">สัดส่วนการชาร์จบ้าน (AC) เทียบกับสถานีสาธารณะ (DC)</div>' +
+        '</div>' +
+        '<span class="badge badge-teal">รวม ' + fmtNum(totalCost, 0) + ' ฿</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:center;gap:24px;padding:12px 6px;flex-wrap:wrap;">' +
+        '<div style="position:relative;width:160px;height:160px;flex-shrink:0;">' +
+          '<svg width="160" height="160" viewBox="0 0 170 170" style="transform:rotate(-90deg);display:block;">' +
+            '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="20" opacity="0.25" />' +
+            (totalKwh > 0 ? (
+              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0D9488" stroke-width="20" stroke-dasharray="' + acLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0" class="donut-segment"><title>AC Home: ' + acPct + '% (' + acKwh.toFixed(1) + ' kWh)</title></circle>' +
+              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0284C7" stroke-width="20" stroke-dasharray="' + dcLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="-' + acLen.toFixed(1) + '" class="donut-segment"><title>DC Fast: ' + dcPct + '% (' + dcKwh.toFixed(1) + ' kWh)</title></circle>'
+            ) : '') +
+          '</svg>' +
+          '<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">' +
+            '<span style="font-size:20px;font-weight:800;font-family:JetBrains Mono;color:var(--text-main);line-height:1.1;">' + totalKwh.toFixed(0) + '</span>' +
+            '<span style="font-size:11px;color:var(--text-muted);font-weight:500;">kWh รวม</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:12px;flex:1;min-width:180px;">' +
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0D9488;">' +
+            '<div style="flex:1;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<strong style="font-size:13px;color:var(--text-main);">AC ชาร์จบ้าน</strong>' +
+                '<span class="badge badge-teal">' + acPct + '%</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;">' + fmtNum(acKwh, 1) + ' kWh • ' + fmtNum(acCost, 0) + ' ฿</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);">เฉลี่ย ~' + fmtNum(acAvgRate, 2) + ' ฿/หน่วย</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0284C7;">' +
+            '<div style="flex:1;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<strong style="font-size:13px;color:var(--text-main);">DC ตู้ด่วน</strong>' +
+                '<span class="badge badge-sky">' + dcPct + '%</span>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;">' + fmtNum(dcKwh, 1) + ' kWh • ' + fmtNum(dcCost, 0) + ' ฿</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);">เฉลี่ย ~' + fmtNum(dcAvgRate, 2) + ' ฿/หน่วย</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+        '<span>สัดส่วน AC สูงกว่า DC ช่วยประหยัดต้นทุนค่าไฟได้มากกว่า 45%</span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function generateMonthlyCostBarChart(monthly) {
+    if (!monthly || monthly.length === 0) {
+      return '<div class="card">' +
+        '<div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> เปรียบเทียบการชาร์จรายเดือน (Monthly Comparison)</div></div>' +
+        '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">ยังไม่มีข้อมูลประวัติการชาร์จ</div></div>';
+    }
+
+    var maxKwh = Math.max.apply(Math, monthly.map(function(m) { return m.kwh; }).concat([10]));
+    var topMargin = 45;
+    var maxBarH = 88;
+    var barW = 38;
+    var gap = 28;
+    var totalW = Math.max(360, monthly.length * (barW + gap) + 48);
+    var baseY = topMargin + maxBarH;
+    var svgH = baseY + 36;
+
+    var bars = monthly.map(function(m, i) {
+      var h = Math.max(4, Math.round((m.kwh / maxKwh) * maxBarH));
+      var x = 28 + i * (barW + gap);
+      var y = baseY - h;
+      var monthLabel = formatThaiMonthShort(m.month);
+      return '<g class="bar-group">' +
+        '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" rx="6" fill="url(#skyGradient)" />' +
+        '<text x="' + (x + barW/2) + '" y="' + (y - 17) + '" font-size="11.5" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + m.kwh.toFixed(0) + ' <tspan font-size="9" fill="var(--text-muted)">kWh</tspan></text>' +
+        '<text x="' + (x + barW/2) + '" y="' + (y - 4) + '" font-size="10" font-family="JetBrains Mono" fill="var(--text-secondary)" text-anchor="middle">' + fmtNum(m.cost, 0) + ' ฿</text>' +
+        '<text x="' + (x + barW/2) + '" y="' + (baseY + 20) + '" font-size="11" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle" font-weight="500">' + monthLabel + '</text>' +
+        '</g>';
+    }).join("");
+
+    return '<div class="card">' +
+      '<div class="card-header">' +
+        '<div>' +
+          '<div class="card-title">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
+            ' เปรียบเทียบการชาร์จรายเดือน (Monthly Comparison)' +
+          '</div>' +
+          '<div class="card-subtitle">ปริมาณพลังงานไฟฟ้า (kWh) และยอดค่าใช้จ่าย (฿) ในแต่ละเดือน</div>' +
+        '</div>' +
+        '<span class="badge badge-sky">' + monthly.length + ' เดือนที่บันทึก</span>' +
+      '</div>' +
+      '<div style="overflow-x:auto;padding-bottom:8px;">' +
+        '<svg width="100%" height="' + svgH + '" viewBox="0 0 ' + totalW + ' ' + svgH + '" style="max-width:100%;min-width:300px;display:block;">' +
+          '<defs><linearGradient id="skyGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38BDF8" /><stop offset="100%" stop-color="#0284C7" /></linearGradient></defs>' +
+          '<line x1="16" y1="' + (baseY + 4) + '" x2="' + (totalW - 16) + '" y2="' + (baseY + 4) + '" stroke="var(--border)" stroke-width="1" />' +
+          bars +
+        '</svg>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function generateDistanceEfficiencyScatter(tripRows) {
+    var validTrips = (tripRows || []).filter(function(r) {
+      var dist = r.km || (r.odoEnd && r.odoStart ? (r.odoEnd - r.odoStart) : 0);
+      return dist > 0 && (r.cons > 0 || r.kwh > 0);
+    });
+
+    if (validTrips.length < 3) {
+      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg> ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลทริปยังไม่เพียงพอสำหรับการวิเคราะห์</div></div>';
+    }
+
+    var points = [];
+    validTrips.forEach(function(r) {
+      var dist = r.km || (r.odoEnd && r.odoStart ? (r.odoEnd - r.odoStart) : 0);
+      var eff = 0;
+      if (r.kwh && r.kwh > 0) {
+        eff = dist / r.kwh;
+      } else if (r.cons && r.cons > 0) {
+        eff = 100 / r.cons;
+      }
+      if (dist >= 1 && dist <= 120 && eff >= 2.0 && eff <= 10.0) {
+        var wh = Math.round(1000 / eff);
+        points.push({
+          date: r.iso || "-",
+          dist: dist,
+          eff: eff,
+          wh: wh
+        });
+      }
+    });
+
+    if (points.length < 3) {
+      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg> ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลทริปยังไม่เพียงพอสำหรับการวิเคราะห์</div></div>';
+    }
+
+    var svgW = 460;
+    var svgH = 200;
+    var padLeft = 44;
+    var padRight = 24;
+    var padTop = 24;
+    var padBottom = 32;
+    var plotW = svgW - padLeft - padRight;
+    var plotH = svgH - padTop - padBottom;
+
+    var minX = 0, maxX = 80;
+    var minY = 2.0, maxY = 8.0;
+
+    function getX(d) {
+      return padLeft + (Math.min(maxX, Math.max(minX, d)) / maxX) * plotW;
+    }
+    function getY(e) {
+      var clamped = Math.min(maxY, Math.max(minY, e));
+      return padTop + (1 - ((clamped - minY) / (maxY - minY))) * plotH;
+    }
+
+    var yGridTicks = [2, 4, 6, 8];
+    var gridSvg = yGridTicks.map(function(val) {
+      var y = getY(val);
+      return '<line x1="' + padLeft + '" y1="' + y + '" x2="' + (svgW - padRight) + '" y2="' + y + '" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3" opacity="0.6" />' +
+        '<text x="' + (padLeft - 6) + '" y="' + (y + 3) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="end">' + val + '</text>';
+    }).join("");
+
+    var xGridTicks = [0, 20, 40, 60, 80];
+    var xTicksSvg = xGridTicks.map(function(val) {
+      var x = getX(val);
+      return '<text x="' + x + '" y="' + (svgH - 12) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="middle">' + val + '</text>';
+    }).join("");
+
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, N = points.length;
+    points.forEach(function(p) {
+      sumX += p.dist;
+      sumY += p.eff;
+      sumXY += (p.dist * p.eff);
+      sumXX += (p.dist * p.dist);
+    });
+    var slope = (N * sumXY - sumX * sumY) / (N * sumXX - sumX * sumX || 1);
+    var intercept = (sumY - slope * sumX) / N;
+
+    var trendX1 = 5;
+    var trendY1 = slope * trendX1 + intercept;
+    var trendX2 = 75;
+    var trendY2 = slope * trendX2 + intercept;
+
+    var trendLineSvg = '<line x1="' + getX(trendX1).toFixed(1) + '" y1="' + getY(trendY1).toFixed(1) + '" x2="' + getX(trendX2).toFixed(1) + '" y2="' + getY(trendY2).toFixed(1) + '" stroke="var(--teal)" stroke-width="2" stroke-dasharray="4,4" opacity="0.75" />' +
+      '<text x="' + (getX(trendX2) - 4) + '" y="' + (getY(trendY2) - 6) + '" font-size="9" font-family="Anuphan" fill="var(--teal)" text-anchor="end" font-weight="600">Trendline</text>';
+
+    var dotsSvg = points.map(function(p) {
+      var cx = getX(p.dist).toFixed(1);
+      var cy = getY(p.eff).toFixed(1);
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="4.5" fill="#0D9488" fill-opacity="0.65" stroke="#14B8A6" stroke-width="1.2" class="scatter-dot">' +
+        '<title>' + p.date + ' | ระยะ ' + p.dist.toFixed(1) + ' km | ' + p.eff.toFixed(2) + ' km/kWh (' + p.wh + ' Wh/km)</title>' +
+        '</circle>';
+    }).join("");
+
+    return '<div class="card">' +
+      '<div class="card-header">' +
+        '<div>' +
+          '<div class="card-title">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg>' +
+            ' ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)' +
+          '</div>' +
+          '<div class="card-subtitle">แกน X: ระยะทาง (km) • แกน Y: ประสิทธิภาพ (km/kWh) • ' + points.length + ' ทริป</div>' +
+        '</div>' +
+        '<span class="badge badge-sky">Correlation</span>' +
+      '</div>' +
+      '<div style="overflow-x:auto;">' +
+        '<svg width="100%" height="200" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="max-width:100%;min-width:320px;display:block;">' +
+          '<line x1="' + padLeft + '" y1="' + (svgH - padBottom) + '" x2="' + (svgW - padRight) + '" y2="' + (svgH - padBottom) + '" stroke="var(--border)" stroke-width="1" />' +
+          '<line x1="' + padLeft + '" y1="' + padTop + '" x2="' + padLeft + '" y2="' + (svgH - padBottom) + '" stroke="var(--border)" stroke-width="1" />' +
+          gridSvg +
+          xTicksSvg +
+          trendLineSvg +
+          dotsSvg +
+          '<text x="' + (svgW - padRight) + '" y="' + (svgH - 2) + '" font-size="9" font-family="Anuphan" fill="var(--text-muted)" text-anchor="end">ระยะทาง (km)</text>' +
+          '<text x="' + padLeft + '" y="' + (padTop - 8) + '" font-size="9" font-family="Anuphan" fill="var(--text-muted)" text-anchor="start">km/kWh</text>' +
+        '</svg>' +
+      '</div>' +
+    '</div>';
+  }
+
   function renderDashboardView(agg, rows) {
     var vState = getLatestVehicleState(rows);
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
+    var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
     var recentCharges = chargeRows.slice(-5).reverse();
     var monthly = computeMonthlyData();
 
     var acKwh = 0, dcKwh = 0, acCost = 0, dcCost = 0, acCount = 0, dcCount = 0;
     chargeRows.forEach(function(r) {
-      var isDc = r.note && r.note.toUpperCase().indexOf("DC") !== -1;
+      var isDc = isDcChargeRecord ? isDcChargeRecord(r) : (r.note && r.note.toUpperCase().indexOf("DC") !== -1);
       if (isDc) {
         dcKwh += (r.kwh || 0);
         dcCost += (r.net || 0);
@@ -2351,37 +2761,6 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var socColor = vState.soc <= 20 ? "var(--rose)" : vState.soc <= 40 ? "var(--amber)" : "var(--emerald)";
     var socGradient = vState.soc <= 20 ? "linear-gradient(90deg, #F87171, #EF4444)" : vState.soc <= 40 ? "linear-gradient(90deg, #FBBF24, #F59E0B)" : "linear-gradient(90deg, #38BDF8, #10B981)";
 
-    var chartSvg = '<div style="text-align:center;color:var(--text-muted);padding:40px 0;">ยังไม่มีข้อมูลประวัติการชาร์จเพียงพอสำหรับแสดงกราฟ</div>';
-    if (monthly.length > 0) {
-      var maxKwh = Math.max.apply(Math, monthly.map(function(m) { return m.kwh; }).concat([10]));
-      var topMargin = 45;
-      var maxBarH = 85;
-      var barW = 38;
-      var gap = 28;
-      var totalW = Math.max(380, monthly.length * (barW + gap) + 48);
-      var baseY = topMargin + maxBarH; // 130
-      var svgH = baseY + 36; // 166
-
-      var bars = monthly.map(function(m, i) {
-        var h = Math.max(4, Math.round((m.kwh / maxKwh) * maxBarH));
-        var x = 28 + i * (barW + gap);
-        var y = baseY - h;
-        var monthLabel = formatThaiMonthShort(m.month);
-        return '<g class="bar-group">' +
-          '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + h + '" rx="6" fill="url(#skyGradient)" />' +
-          '<text x="' + (x + barW/2) + '" y="' + (y - 17) + '" font-size="11.5" font-family="JetBrains Mono" fill="var(--primary)" text-anchor="middle" font-weight="700">' + m.kwh.toFixed(0) + ' <tspan font-size="9" fill="var(--text-muted)">kWh</tspan></text>' +
-          '<text x="' + (x + barW/2) + '" y="' + (y - 4) + '" font-size="10" font-family="JetBrains Mono" fill="var(--text-secondary)" text-anchor="middle">' + fmtNum(m.cost, 0) + ' ฿</text>' +
-          '<text x="' + (x + barW/2) + '" y="' + (baseY + 20) + '" font-size="11" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle" font-weight="500">' + monthLabel + '</text>' +
-          '</g>';
-      }).join("");
-
-      chartSvg = '<div style="overflow-x:auto;padding-bottom:8px;">' +
-        '<svg width="' + totalW + '" height="' + svgH + '" viewBox="0 0 ' + totalW + ' ' + svgH + '">' +
-        '<defs><linearGradient id="skyGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38BDF8" /><stop offset="100%" stop-color="#0284C7" /></linearGradient></defs>' +
-        '<line x1="16" y1="' + (baseY + 4) + '" x2="' + (totalW - 16) + '" y2="' + (baseY + 4) + '" stroke="var(--border)" stroke-width="1" />' +
-        bars +
-        '</svg></div>';
-    }
 
     var recentRowsHtml = recentCharges.length === 0 ?
       '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีข้อมูลการชาร์จ</td></tr>' :
@@ -2591,68 +2970,19 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '</div>' +
       '</div>' +
 
-      '<!-- Analytics Split Grid -->' +
-      '<div class="analytics-split-grid">' +
-        '<!-- Monthly Energy Trend Chart -->' +
-        '<div class="card">' +
-          '<div class="card-header">' +
-            '<div>' +
-              '<div class="card-title">' +
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>' +
-                ' แนวโน้มการชาร์จไฟรายเดือน (Monthly Energy & Cost)' +
-              '</div>' +
-              '<div class="card-subtitle">ปริมาณพลังงานไฟฟ้า (kWh) และยอดค่าใช้จ่าย (฿) ในแต่ละเดือน</div>' +
-            '</div>' +
-            '<span class="badge badge-sky">' + monthly.length + ' เดือนที่บันทึก</span>' +
-          '</div>' +
-          chartSvg +
-        '</div>' +
+      '<!-- Data Visualization 2x2 Hub (Mockup 1: Executive Performance & Operations) -->' +
+      '<div class="viz-grid-2x2">' +
+        '<!-- Chart A: Efficiency Trend (Line Chart) -->' +
+        generateEfficiencyLineChart(tripRows) +
 
-        '<!-- AC vs DC Charging Mix & Smart Insight -->' +
-        '<div class="card">' +
-          '<div class="card-header">' +
-            '<div>' +
-              '<div class="card-title">' +
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' +
-                ' สัดส่วนการชาร์จ AC vs DC' +
-              '</div>' +
-              '<div class="card-subtitle">สัดส่วนการชาร์จบ้านและตู้สาธารณะ</div>' +
-            '</div>' +
-            '<button class="btn btn-secondary btn-sm" data-nav="reports">ดูรายงานแยก AC/DC</button>' +
-          '</div>' +
+        '<!-- Chart B: Charging Energy & Cost Mix (Donut Chart) -->' +
+        generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, agg.costPerKm) +
 
-          '<div class="charging-mix-box">' +
-            '<div class="charging-mix-bar">' +
-              '<div class="charging-mix-ac" style="width:' + acPct + '%;"></div>' +
-              '<div class="charging-mix-dc" style="width:' + dcPct + '%;"></div>' +
-            '</div>' +
-            '<div class="charging-mix-legend">' +
-              '<div class="mix-legend-item">' +
-                '<span class="mix-dot ac"></span>' +
-                '<div>' +
-                  '<div class="mix-title">AC ชาร์จบ้าน (' + acPct + '%)</div>' +
-                  '<div class="mix-val">' + fmtNum(acKwh, 1) + ' kWh • ' + fmtNum(acCost, 0) + ' ฿</div>' +
-                '</div>' +
-              '</div>' +
-              '<div class="mix-legend-item">' +
-                '<span class="mix-dot dc"></span>' +
-                '<div>' +
-                  '<div class="mix-title">DC ตู้ด่วน (' + dcPct + '%)</div>' +
-                  '<div class="mix-val">' + fmtNum(dcKwh, 1) + ' kWh • ' + fmtNum(dcCost, 0) + ' ฿</div>' +
-                '</div>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
+        '<!-- Chart C: Monthly Comparison (Bar Chart) -->' +
+        generateMonthlyCostBarChart(monthly) +
 
-          '<div class="smart-advice-box">' +
-            '<div class="smart-advice-icon">' +
-              '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>' +
-            '</div>' +
-            '<div class="smart-advice-text">' +
-              'แบตเตอรี่ <strong>' + state.batteryCapacity.toFixed(1) + ' kWh</strong> • ค่าไฟฐาน <strong>' + state.unitRate.toFixed(2) + ' ฿/kWh</strong> — การชาร์จ AC ช่วง Off-Peak (TOU) ช่วยประหยัดค่าใช้จ่ายได้มากกว่า DC ถึง 40-50%' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
+        '<!-- Chart D: Distance vs Efficiency (Scatter Plot) -->' +
+        generateDistanceEfficiencyScatter(tripRows) +
       '</div>' +
 
       '<!-- Recent Charges Table -->' +
