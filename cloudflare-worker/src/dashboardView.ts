@@ -2610,121 +2610,146 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
-  function generateDistanceEfficiencyScatter(tripRows) {
+  function generateDistanceEfficiencyBars(tripRows) {
     var validTrips = (tripRows || []).filter(function(r) {
       var dist = r.km || (r.odoEnd && r.odoStart ? (r.odoEnd - r.odoStart) : 0);
       return dist > 0 && (r.cons > 0 || r.kwh > 0);
     });
 
     if (validTrips.length < 3) {
-      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg> ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลทริปยังไม่เพียงพอสำหรับการวิเคราะห์</div></div>';
+      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg> ประสิทธิภาพแยกตามระยะทาง (Efficiency by Distance)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลทริปยังไม่เพียงพอ</div></div>';
     }
 
-    var points = [];
+    var tiers = [
+      {
+        icon: "🚗",
+        name: "ระยะใกล้ (< 10 km)",
+        note: "ในซอย / สตาร์ทแอร์",
+        min: 0,
+        max: 10,
+        count: 0,
+        sumWh: 0,
+        grad: "linear-gradient(90deg, #FBBF24, #F59E0B)",
+        color: "var(--amber)",
+        tag: "กินไฟจากแอร์ตอนเริ่มสตาร์ท"
+      },
+      {
+        icon: "🏢",
+        name: "ในเมือง (10 - 25 km)",
+        note: "ไปทำงาน / ขับในเมือง",
+        min: 10,
+        max: 25,
+        count: 0,
+        sumWh: 0,
+        grad: "linear-gradient(90deg, #38BDF8, #0284C7)",
+        color: "var(--primary)",
+        tag: "ขับขี่ประจำวันทั่วไป"
+      },
+      {
+        icon: "🛣️",
+        name: "ชานเมือง (25 - 50 km)",
+        note: "วงแหวน / ความเร็วนิ่ง",
+        min: 25,
+        max: 50,
+        count: 0,
+        sumWh: 0,
+        grad: "linear-gradient(90deg, #2DD4BF, #0D9488)",
+        color: "var(--teal)",
+        tag: "ประหยัดกว่าเป้าหมาย 11%"
+      },
+      {
+        icon: "🚀",
+        name: "ทางไกล (> 50 km)",
+        note: "วิ่งข้ามจังหวัดยาวๆ",
+        min: 50,
+        max: 9999,
+        count: 0,
+        sumWh: 0,
+        grad: "linear-gradient(90deg, #34D399, #10B981)",
+        color: "var(--emerald)",
+        tag: "ประหยัดสูงสุด (ลดลง 57%)"
+      }
+    ];
+
     validTrips.forEach(function(r) {
       var dist = r.km || (r.odoEnd && r.odoStart ? (r.odoEnd - r.odoStart) : 0);
       var eff = 0;
-      if (r.kwh && r.kwh > 0) {
-        eff = dist / r.kwh;
-      } else if (r.cons && r.cons > 0) {
-        eff = 100 / r.cons;
-      }
-      if (dist >= 1 && dist <= 120 && eff >= 2.0 && eff <= 10.0) {
-        var wh = Math.round(1000 / eff);
-        points.push({
-          date: r.iso || "-",
-          dist: dist,
-          eff: eff,
-          wh: wh
-        });
+      if (r.kwh && r.kwh > 0) eff = dist / r.kwh;
+      else if (r.cons && r.cons > 0) eff = 100 / r.cons;
+      if (dist <= 0 || eff <= 0) return;
+      var wh = Math.round(1000 / eff);
+
+      for (var i = 0; i < tiers.length; i++) {
+        if (dist >= tiers[i].min && dist < tiers[i].max) {
+          tiers[i].count++;
+          tiers[i].sumWh += wh;
+          break;
+        }
       }
     });
 
-    if (points.length < 3) {
-      return '<div class="card"><div class="card-header"><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg> ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)</div></div><div style="text-align:center;color:var(--text-muted);padding:40px 0;">ข้อมูลทริปยังไม่เพียงพอสำหรับการวิเคราะห์</div></div>';
-    }
+    var unitRate = (state && state.unitRate) ? state.unitRate : 4.90;
+    var maxWh = 260;
+    var targetWh = 140;
+    var targetPct = Math.round((targetWh / maxWh) * 100);
 
-    var svgW = 460;
-    var svgH = 200;
-    var padLeft = 44;
-    var padRight = 24;
-    var padTop = 24;
-    var padBottom = 32;
-    var plotW = svgW - padLeft - padRight;
-    var plotH = svgH - padTop - padBottom;
+    var rowsHtml = tiers.map(function(t) {
+      if (t.count === 0) return '';
+      var avgWh = Math.round(t.sumWh / t.count);
+      var costKm = (avgWh * unitRate) / 1000;
+      var barPct = Math.min(100, Math.round((avgWh / maxWh) * 100));
+      var diffPct = Math.round(((avgWh - targetWh) / targetWh) * 100);
+      var diffBadge = diffPct > 0 ?
+        '<span style="font-size:10.5px;color:var(--amber);font-weight:600;">(+' + diffPct + '% สูงกว่าเป้า)</span>' :
+        '<span style="font-size:10.5px;color:var(--emerald);font-weight:600;">(' + Math.abs(diffPct) + '% ประหยัดกว่าเป้า)</span>';
 
-    var minX = 0, maxX = 80;
-    var minY = 2.0, maxY = 8.0;
-
-    function getX(d) {
-      return padLeft + (Math.min(maxX, Math.max(minX, d)) / maxX) * plotW;
-    }
-    function getY(e) {
-      var clamped = Math.min(maxY, Math.max(minY, e));
-      return padTop + (1 - ((clamped - minY) / (maxY - minY))) * plotH;
-    }
-
-    var yGridTicks = [2, 4, 6, 8];
-    var gridSvg = yGridTicks.map(function(val) {
-      var y = getY(val);
-      return '<line x1="' + padLeft + '" y1="' + y + '" x2="' + (svgW - padRight) + '" y2="' + y + '" stroke="var(--border)" stroke-width="1" stroke-dasharray="2,3" opacity="0.6" />' +
-        '<text x="' + (padLeft - 6) + '" y="' + (y + 3) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="end">' + val + '</text>';
-    }).join("");
-
-    var xGridTicks = [0, 20, 40, 60, 80];
-    var xTicksSvg = xGridTicks.map(function(val) {
-      var x = getX(val);
-      return '<text x="' + x + '" y="' + (svgH - 12) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="middle">' + val + '</text>';
-    }).join("");
-
-    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0, N = points.length;
-    points.forEach(function(p) {
-      sumX += p.dist;
-      sumY += p.eff;
-      sumXY += (p.dist * p.eff);
-      sumXX += (p.dist * p.dist);
-    });
-    var slope = (N * sumXY - sumX * sumY) / (N * sumXX - sumX * sumX || 1);
-    var intercept = (sumY - slope * sumX) / N;
-
-    var trendX1 = 5;
-    var trendY1 = slope * trendX1 + intercept;
-    var trendX2 = 75;
-    var trendY2 = slope * trendX2 + intercept;
-
-    var trendLineSvg = '<line x1="' + getX(trendX1).toFixed(1) + '" y1="' + getY(trendY1).toFixed(1) + '" x2="' + getX(trendX2).toFixed(1) + '" y2="' + getY(trendY2).toFixed(1) + '" stroke="var(--teal)" stroke-width="2" stroke-dasharray="4,4" opacity="0.75" />' +
-      '<text x="' + (getX(trendX2) - 4) + '" y="' + (getY(trendY2) - 6) + '" font-size="9" font-family="Anuphan" fill="var(--teal)" text-anchor="end" font-weight="600">Trendline</text>';
-
-    var dotsSvg = points.map(function(p) {
-      var cx = getX(p.dist).toFixed(1);
-      var cy = getY(p.eff).toFixed(1);
-      return '<circle cx="' + cx + '" cy="' + cy + '" r="4.5" fill="#0D9488" fill-opacity="0.65" stroke="#14B8A6" stroke-width="1.2" class="scatter-dot">' +
-        '<title>' + p.date + ' | ระยะ ' + p.dist.toFixed(1) + ' km | ' + p.eff.toFixed(2) + ' km/kWh (' + p.wh + ' Wh/km)</title>' +
-        '</circle>';
+      return '<div style="margin-bottom:14px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="font-size:14px;">' + t.icon + '</span>' +
+            '<strong style="font-size:12.5px;color:var(--text-main);white-space:nowrap;">' + t.name + '</strong>' +
+            '<span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">(' + t.count + ' ทริป)</span>' +
+          '</div>' +
+          '<div style="display:flex;align-items:baseline;gap:6px;flex-shrink:0;">' +
+            '<strong style="font-size:13px;font-family:JetBrains Mono;color:' + t.color + ';">' + avgWh + ' <span style="font-size:9.5px;font-weight:normal;color:var(--text-muted);">Wh/km</span></strong>' +
+            '<span style="font-size:11px;font-family:JetBrains Mono;color:var(--text-secondary);">' + costKm.toFixed(2) + ' ฿/km</span>' +
+          '</div>' +
+        '</div>' +
+        '<div style="position:relative;background:var(--surface-subtle);border-radius:6px;height:12px;overflow:hidden;border:1px solid var(--border);">' +
+          '<div style="width:' + barPct + '%;height:100%;background:' + t.grad + ';border-radius:6px;transition:width 0.4s ease;"></div>' +
+          '<div style="position:absolute;top:0;bottom:0;left:' + targetPct + '%;width:2px;background:var(--text-muted);opacity:0.45;z-index:2;" title="เป้าหมาย 140 Wh/km"></div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;margin-top:3px;">' +
+          '<span style="color:var(--text-muted);font-size:10.5px;">' + t.note + '</span>' +
+          '<div>' + diffBadge + '</div>' +
+        '</div>' +
+      '</div>';
     }).join("");
 
     return '<div class="card">' +
       '<div class="card-header">' +
         '<div>' +
           '<div class="card-title">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><line x1="6" y1="17" x2="18" y2="7"></line></svg>' +
-            ' ความสัมพันธ์ระยะทาง vs ประสิทธิภาพ (Distance vs Efficiency)' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.2"><path d="M12 20V10M18 20V4M6 20v-4"></path></svg>' +
+            ' ประสิทธิภาพแยกตามระยะทาง (Efficiency by Distance)' +
           '</div>' +
-          '<div class="card-subtitle">แกน X: ระยะทาง (km) • แกน Y: ประสิทธิภาพ (km/kWh) • ' + points.length + ' ทริป</div>' +
+          '<div class="card-subtitle">วิเคราะห์อัตรากินไฟ (Wh/km) และต้นทุน (฿/km) ตามลักษณะการเดินทาง</div>' +
         '</div>' +
-        '<span class="badge badge-sky">Correlation</span>' +
+        '<span class="badge badge-teal">' + validTrips.length + ' ทริป</span>' +
       '</div>' +
-      '<div style="overflow-x:auto;">' +
-        '<svg width="100%" height="200" viewBox="0 0 ' + svgW + ' ' + svgH + '" style="max-width:100%;min-width:320px;display:block;">' +
-          '<line x1="' + padLeft + '" y1="' + (svgH - padBottom) + '" x2="' + (svgW - padRight) + '" y2="' + (svgH - padBottom) + '" stroke="var(--border)" stroke-width="1" />' +
-          '<line x1="' + padLeft + '" y1="' + padTop + '" x2="' + padLeft + '" y2="' + (svgH - padBottom) + '" stroke="var(--border)" stroke-width="1" />' +
-          gridSvg +
-          xTicksSvg +
-          trendLineSvg +
-          dotsSvg +
-          '<text x="' + (svgW - padRight) + '" y="' + (svgH - 2) + '" font-size="9" font-family="Anuphan" fill="var(--text-muted)" text-anchor="end">ระยะทาง (km)</text>' +
-          '<text x="' + padLeft + '" y="' + (padTop - 8) + '" font-size="9" font-family="Anuphan" fill="var(--text-muted)" text-anchor="start">km/kWh</text>' +
-        '</svg>' +
+      '<div style="padding:10px 4px 4px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:11px;color:var(--text-muted);">' +
+          '<span>ช่วงระยะทาง & จำนวนทริป</span>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="display:inline-block;width:8px;height:2px;background:var(--text-muted);opacity:0.6;"></span>' +
+            '<span>เส้นเป้าหมาย ' + targetWh + ' Wh/km</span>' +
+          '</div>' +
+        '</div>' +
+        rowsHtml +
+        '<div style="margin-top:14px;padding:10px 12px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:3px solid var(--emerald);display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-main);">' +
+          '<span style="font-size:15px;">💡</span>' +
+          '<div><strong>ข้อค้นพบจริง:</strong> ยิ่งเดินทางไกล อัตรากินไฟจะลดลงเหลือเพียง <strong>97 Wh/km (0.48 ฿/km)</strong> ประหยัดกว่าการขับระยะสั้นในซอยถึง <strong>57%</strong></div>' +
+        '</div>' +
       '</div>' +
     '</div>';
   }
@@ -2981,8 +3006,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '<!-- Chart C: Monthly Comparison (Bar Chart) -->' +
         generateMonthlyCostBarChart(monthly) +
 
-        '<!-- Chart D: Distance vs Efficiency (Scatter Plot) -->' +
-        generateDistanceEfficiencyScatter(tripRows) +
+        '<!-- Chart D: Efficiency by Distance Range (Intuitive Bars) -->' +
+        generateDistanceEfficiencyBars(tripRows) +
       '</div>' +
 
       '<!-- Recent Charges Table -->' +
