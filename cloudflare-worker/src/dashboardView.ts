@@ -2492,18 +2492,59 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
-  function generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, costPerKm) {
+  function generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, costPerKm, acCount, dcCount, chargeRows) {
     var totalKwh = (acKwh + dcKwh) || 0;
     var acPct = totalKwh > 0 ? Math.round((acKwh / totalKwh) * 100) : 0;
     var dcPct = totalKwh > 0 ? (100 - acPct) : 0;
     var totalCost = acCost + dcCost;
     var acAvgRate = acKwh > 0 ? (acCost / acKwh) : 0;
     var dcAvgRate = dcKwh > 0 ? (dcCost / dcKwh) : 0;
+    var cAcCount = (typeof acCount === 'number') ? acCount : 0;
+    var cDcCount = (typeof dcCount === 'number') ? dcCount : 0;
 
     var r = 58;
     var C = 364.425;
     var acLen = totalKwh > 0 ? (acPct / 100) * C : 0;
     var dcLen = totalKwh > 0 ? C - acLen : 0;
+
+    // Optional DC station breakdown chips
+    var stationChipsHtml = '';
+    if (chargeRows && chargeRows.length > 0) {
+      var netMap = {};
+      chargeRows.forEach(function(row) {
+        var isDc = isDcChargeRecord ? isDcChargeRecord(row) : (row.note && row.note.toUpperCase().indexOf('DC') !== -1);
+        if (isDc) {
+          var raw = (row.note || 'DC Station').trim();
+          var lower = raw.toLowerCase();
+          var sName = 'DC อื่นๆ';
+          if (lower.indexOf('ptt') !== -1 || lower.indexOf('pluz') !== -1) sName = 'PTT EV Station';
+          else if (lower.indexOf('pea') !== -1 || lower.indexOf('volta') !== -1 || raw.indexOf('องครักษ์') !== -1) sName = 'PEA Volta';
+          else if (lower.indexOf('ea') !== -1) sName = 'EA Anywhere';
+          else if (lower.indexOf('charge+') !== -1) sName = 'Charge+';
+          else if (lower.indexOf('mg') !== -1) sName = 'MG Super Charge';
+          if (!netMap[sName]) netMap[sName] = { kwh: 0, cost: 0, count: 0 };
+          netMap[sName].kwh += (row.kwh || 0);
+          netMap[sName].cost += (row.net || 0);
+          netMap[sName].count++;
+        }
+      });
+      var netKeys = Object.keys(netMap);
+      if (netKeys.length > 0) {
+        stationChipsHtml = '<div style="margin-top:6px;padding:8px 10px;border-radius:var(--radius-sm);background:rgba(2,132,199,0.06);border:1px dashed rgba(2,132,199,0.22);font-size:11px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;">' +
+          '<span style="font-weight:700;color:var(--sky);display:inline-flex;align-items:center;gap:4px;">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="2" width="11" height="20" rx="2"></rect><line x1="3" y1="8" x2="14" y2="8"></line><path d="M14 9h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"></path></svg>' +
+            'ตู้ชาร์จ DC ที่เคยใช้:' +
+          '</span>' +
+          netKeys.map(function(k) {
+            var st = netMap[k];
+            var rate = st.kwh > 0 ? (st.cost / st.kwh).toFixed(2) : '-';
+            return '<span style="background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:4px;color:var(--text-main);font-weight:500;">' +
+              k + ' <span style="color:var(--text-muted);font-family:JetBrains Mono;">(' + st.count + ' ครั้ง • ' + rate + '฿/u)</span>' +
+            '</span>';
+          }).join('') +
+        '</div>';
+      }
+    }
 
     return '<div class="card">' +
       '<div class="card-header">' +
@@ -2516,13 +2557,13 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '</div>' +
         '<span class="badge badge-teal">รวม ' + fmtNum(totalCost, 0) + ' ฿</span>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;justify-content:center;gap:24px;padding:12px 6px;flex-wrap:wrap;">' +
-        '<div style="position:relative;width:160px;height:160px;flex-shrink:0;">' +
-          '<svg width="160" height="160" viewBox="0 0 170 170" style="transform:rotate(-90deg);display:block;">' +
+      '<div style="display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 6px;flex-wrap:wrap;">' +
+        '<div style="position:relative;width:150px;height:150px;flex-shrink:0;">' +
+          '<svg width="150" height="150" viewBox="0 0 170 170" style="transform:rotate(-90deg);display:block;">' +
             '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="var(--border)" stroke-width="20" opacity="0.25" />' +
             (totalKwh > 0 ? (
-              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0D9488" stroke-width="20" stroke-dasharray="' + acLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0" class="donut-segment"><title>AC Home: ' + acPct + '% (' + acKwh.toFixed(1) + ' kWh)</title></circle>' +
-              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0284C7" stroke-width="20" stroke-dasharray="' + dcLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="-' + acLen.toFixed(1) + '" class="donut-segment"><title>DC Fast: ' + dcPct + '% (' + dcKwh.toFixed(1) + ' kWh)</title></circle>'
+              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0D9488" stroke-width="20" stroke-dasharray="' + acLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="0" class="donut-segment"><title>🏠 AC ชาร์จบ้าน: ' + acPct + '% (' + acKwh.toFixed(1) + ' kWh)</title></circle>' +
+              '<circle cx="85" cy="85" r="' + r + '" fill="none" stroke="#0284C7" stroke-width="20" stroke-dasharray="' + dcLen.toFixed(1) + ' ' + C.toFixed(1) + '" stroke-dashoffset="-' + acLen.toFixed(1) + '" class="donut-segment"><title>⚡ DC ตู้ชาร์จด่วน: ' + dcPct + '% (' + dcKwh.toFixed(1) + ' kWh)</title></circle>'
             ) : '') +
           '</svg>' +
           '<div style="position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">' +
@@ -2530,27 +2571,43 @@ window.__INITIAL_VIEW__ = "${initialTab}";
             '<span style="font-size:11px;color:var(--text-muted);font-weight:500;">kWh รวม</span>' +
           '</div>' +
         '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:12px;flex:1;min-width:180px;">' +
-          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0D9488;">' +
-            '<div style="flex:1;">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<strong style="font-size:13px;color:var(--text-main);">AC ชาร์จบ้าน</strong>' +
-                '<span class="badge badge-teal">' + acPct + '%</span>' +
+        '<div style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:210px;">' +
+          '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0D9488;">' +
+            '<div style="width:40px;height:40px;border-radius:10px;background:rgba(13,148,136,0.12);color:#0D9488;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(13,148,136,0.22);">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<path d="M3 10.5 12 3l9 7.5v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9.5z"></path>' +
+                '<polygon points="12 7.5 9.5 12.5 12 12.5 11 17 14.5 12 12 12 12.5 7.5" fill="currentColor"></polygon>' +
+              '</svg>' +
+            '</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
+                '<span style="font-size:13.5px;font-weight:700;color:var(--text-main);white-space:nowrap;">AC ชาร์จบ้าน</span>' +
+                '<span class="badge badge-teal" style="white-space:nowrap;font-size:11px;">' + acPct + '%' + (cAcCount > 0 ? ' • ' + cAcCount + 'x' : '') + '</span>' +
               '</div>' +
-              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;">' + fmtNum(acKwh, 1) + ' kWh • ' + fmtNum(acCost, 0) + ' ฿</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);">เฉลี่ย ~' + fmtNum(acAvgRate, 2) + ' ฿/หน่วย</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;white-space:nowrap;">' + fmtNum(acKwh, 1) + ' kWh • ' + fmtNum(acCost, 0) + ' ฿</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">เฉลี่ย ~' + fmtNum(acAvgRate, 2) + ' ฿/หน่วย</div>' +
             '</div>' +
           '</div>' +
-          '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0284C7;">' +
-            '<div style="flex:1;">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<strong style="font-size:13px;color:var(--text-main);">DC ตู้ด่วน</strong>' +
-                '<span class="badge badge-sky">' + dcPct + '%</span>' +
+          '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:4px solid #0284C7;">' +
+            '<div style="width:40px;height:40px;border-radius:10px;background:rgba(2,132,199,0.12);color:#0284C7;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(2,132,199,0.22);">' +
+              '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                '<rect x="3" y="2" width="11" height="20" rx="2"></rect>' +
+                '<line x1="3" y1="8" x2="14" y2="8"></line>' +
+                '<circle cx="8.5" cy="5" r="1.2" fill="currentColor"></circle>' +
+                '<path d="M14 9h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"></path>' +
+                '<polygon points="8.5 10.5 6.5 14 9 14 8 17.5 11.5 13 9 13 9.5 10.5" fill="currentColor"></polygon>' +
+              '</svg>' +
+            '</div>' +
+            '<div style="flex:1;min-width:0;">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">' +
+                '<span style="font-size:13.5px;font-weight:700;color:var(--text-main);white-space:nowrap;">DC ตู้ชาร์จด่วน</span>' +
+                '<span class="badge badge-sky" style="white-space:nowrap;font-size:11px;">' + dcPct + '%' + (cDcCount > 0 ? ' • ' + cDcCount + 'x' : '') + '</span>' +
               '</div>' +
-              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;">' + fmtNum(dcKwh, 1) + ' kWh • ' + fmtNum(dcCost, 0) + ' ฿</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);">เฉลี่ย ~' + fmtNum(dcAvgRate, 2) + ' ฿/หน่วย</div>' +
+              '<div style="font-size:12px;color:var(--text-secondary);font-family:JetBrains Mono;margin-top:2px;white-space:nowrap;">' + fmtNum(dcKwh, 1) + ' kWh • ' + fmtNum(dcCost, 0) + ' ฿</div>' +
+              '<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">เฉลี่ย ~' + fmtNum(dcAvgRate, 2) + ' ฿/หน่วย</div>' +
             '</div>' +
           '</div>' +
+          stationChipsHtml +
         '</div>' +
       '</div>' +
       '<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);">' +
@@ -2790,10 +2847,13 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var recentRowsHtml = recentCharges.length === 0 ?
       '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีข้อมูลการชาร์จ</td></tr>' :
       recentCharges.map(function(r) {
-        var isDc = r.note && r.note.toUpperCase().indexOf("DC") !== -1;
+        var isDc = isDcChargeRecord ? isDcChargeRecord(r) : (r.note && r.note.toUpperCase().indexOf("DC") !== -1);
+        var iconSvg = isDc ?
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><rect x="3" y="2" width="11" height="20" rx="2"></rect><line x1="3" y1="8" x2="14" y2="8"></line><path d="M14 9h2a2 2 0 0 1 2 2v5"></path><polygon points="8.5 11 6.5 14 9 14 8 17 11 13 8.5 13 9 11" fill="currentColor"></polygon></svg>' :
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><path d="M3 10.5 12 3l9 7.5v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polygon points="12 8 9 13 12 13 11 17 15 12 12 12 13 8" fill="currentColor"></polygon></svg>';
         return '<tr>' +
           '<td><strong>' + (r.iso || "-") + '</strong><div style="font-size:11.5px;color:var(--text-muted);font-family:var(--font-mono)">' + (r.time || "-") + '</div></td>' +
-          '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '">' + (r.note || "ชาร์จไฟ") + '</span></td>' +
+          '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '" style="display:inline-flex;align-items:center;">' + iconSvg + (r.note || "ชาร์จไฟ") + '</span></td>' +
           '<td class="mono">' + (r.s0 || 0) + '% → <strong>' + (r.s1 || 0) + '%</strong></td>' +
           '<td class="mono"><strong>' + fmtNum(r.kwh, 2) + '</strong> kWh</td>' +
           '<td class="mono" style="color:var(--primary);font-weight:600;">' + fmtNum(r.net, 2) + ' ฿</td>' +
@@ -3001,7 +3061,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         generateEfficiencyLineChart(tripRows) +
 
         '<!-- Chart B: Charging Energy & Cost Mix (Donut Chart) -->' +
-        generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, agg.costPerKm) +
+        generateChargingDonutChart(acKwh, dcKwh, acCost, dcCost, totalChargeKwh, agg.costPerKm, acCount, dcCount, chargeRows) +
 
         '<!-- Chart C: Monthly Comparison (Bar Chart) -->' +
         generateMonthlyCostBarChart(monthly) +
@@ -3058,12 +3118,15 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var rowsHtml = reversedRows.length === 0 ?
       '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted);">ไม่พบรายการที่ตรงกับเงื่อนไขการค้นหา</td></tr>' :
       reversedRows.map(function(r) {
-        var isDc = r.note && (r.note.toLowerCase().indexOf("dc") !== -1 || r.note.indexOf("เร็ว") !== -1);
+        var isDc = isDcChargeRecord ? isDcChargeRecord(r) : (r.note && (r.note.toLowerCase().indexOf("dc") !== -1 || r.note.indexOf("เร็ว") !== -1));
+        var iconSvg = isDc ?
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><rect x="3" y="2" width="11" height="20" rx="2"></rect><line x1="3" y1="8" x2="14" y2="8"></line><path d="M14 9h2a2 2 0 0 1 2 2v5"></path><polygon points="8.5 11 6.5 14 9 14 8 17 11 13 8.5 13 9 11" fill="currentColor"></polygon></svg>' :
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:-1px;margin-right:4px;"><path d="M3 10.5 12 3l9 7.5v9.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polygon points="12 8 9 13 12 13 11 17 15 12 12 12 13 8" fill="currentColor"></polygon></svg>';
         var addedSoc = Math.max(0, (r.s1 || 0) - (r.s0 || 0));
         return '<tr>' +
           '<td class="mono" style="color:var(--text-subtle)">#' + r.sheetRowIndex + '</td>' +
           '<td><strong>' + (r.iso || "-") + '</strong><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">' + (r.time || "-") + '</div></td>' +
-          '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '">' + (r.note || "ชาร์จไฟ") + '</span></td>' +
+          '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '" style="display:inline-flex;align-items:center;">' + iconSvg + (r.note || "ชาร์จไฟ") + '</span></td>' +
           '<td class="mono">' + (r.s0 || 0) + '% → <strong>' + (r.s1 || 0) + '%</strong> <span style="font-size:11px;color:var(--emerald);font-weight:600;">(+' + addedSoc + '%)</span></td>' +
           '<td class="mono"><strong>' + fmtNum(r.kwh, 2) + '</strong> kWh</td>' +
           '<td class="mono" style="color:var(--teal);font-weight:600;">' + fmtNum(r.net, 2) + ' ฿</td>' +
