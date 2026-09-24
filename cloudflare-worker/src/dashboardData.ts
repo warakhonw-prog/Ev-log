@@ -1,5 +1,6 @@
 import { Env } from "./types";
 import { analyzeBattery, BatteryAnalysis } from "./battery";
+import { analyzeTou, TouAnalysis } from "./tou";
 
 function base64UrlEncode(str: string): string {
   return btoa(str)
@@ -98,6 +99,7 @@ export interface DashboardPayload {
   data?: {
     rows: any[];
     battery?: BatteryAnalysis;
+    tou?: TouAnalysis;
     meta: {
       vehicle: string;
       odoStart: number | null;
@@ -325,6 +327,7 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
       data: {
         rows,
         battery,
+        tou: analyzeTou(rows),
         meta: {
           vehicle: "XPENG G6 STD",
           odoStart: odoMin,

@@ -2042,8 +2042,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       return (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 68.5;
     })(),
     unitRate: parseFloat(localStorage.getItem("ev_unit_rate")) || ((window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.rate) || 4.90),
-    rateOnPeak: parseFloat(localStorage.getItem("ev_rate_onpeak")) || 4.70,
-    rateOffPeak: parseFloat(localStorage.getItem("ev_rate_offpeak")) || 2.60,
+    rateOnPeak: parseFloat(localStorage.getItem("ev_rate_onpeak")) || 6.60,
+    rateOffPeak: parseFloat(localStorage.getItem("ev_rate_offpeak")) || 3.25,
     petrolRate: parseFloat(localStorage.getItem("ev_petrol_rate")) || 38.5,
     petrolKmPerL: parseFloat(localStorage.getItem("ev_petrol_km_l")) || 16.0,
     vehicleName: localStorage.getItem("ev_vehicle_name") || ((window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.vehicle) || "XPENG G6 STD"),
@@ -3563,7 +3563,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function renderCostAnalysisView(agg) {
-    return '<div class="card">' +
+    var savingsCard = '<div class="card">' +
       '<div class="card-header"><div><div class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> วิเคราะห์ความคุ้มค่าและเงินที่ประหยัดได้ (Cost & Savings Analysis)</div><div class="card-subtitle">เปรียบเทียบค่าใช้จ่ายจริงระหว่างพลังงานไฟฟ้ากับรถยนต์น้ำมัน</div></div></div>' +
       '<div class="kpi-grid" style="margin-bottom:24px;">' +
         '<div class="kpi-card" style="--kpi-accent:var(--teal);--kpi-soft:var(--teal-soft)">' +
@@ -3592,6 +3592,173 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '</tbody></table></div>' +
       '</div>' +
     '</div>';
+
+    return '<div style="display:flex;flex-direction:column;gap:20px;">' + savingsCard + generateTouWhatIfCard() + '</div>';
+  }
+
+  function readTouNumber(key, fallback) {
+    try {
+      var v = parseFloat(localStorage.getItem(key));
+      return isNaN(v) ? fallback : v;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function generateTouWhatIfCard() {
+    var tou = state.payload.data && state.payload.data.tou;
+    var title = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> เปลี่ยนเป็นมิเตอร์ TOU คุ้มไหม? (TOU What-If)';
+    if (!tou || tou.sessions.length === 0) {
+      return batteryEmptyCard(title, "ยังไม่มีประวัติชาร์จบ้าน (AC) สำหรับคำนวณ");
+    }
+    var t = tou.totals;
+    var offShare = t.kwh > 0 ? t.offPeakKwh / t.kwh * 100 : 0;
+    var evKwhMonth = t.kwh / tou.months;
+    var houseKwh = readTouNumber("ev_tou_house_kwh", 250);
+    var housePct = readTouNumber("ev_tou_house_onpeak_pct", 60);
+    var serviceDelta = readTouNumber("ev_tou_service_delta", 13.6);
+    var meterCost = readTouNumber("ev_tou_meter_cost", 0);
+
+    var input = function(id, label, value, step, hint) {
+      return '<div class="form-group" style="margin:0;"><label for="' + id + '" style="font-size:12px;">' + label + '</label>' +
+        '<input type="number" step="' + step + '" min="0" class="form-control mono tou-input" id="' + id + '" value="' + value + '">' +
+        (hint ? '<span class="form-hint">' + hint + '</span>' : '') + '</div>';
+    };
+    var resultBox = function(id, label, accent) {
+      return '<div style="border:1px solid var(--border);border-top:3px solid ' + accent + ';border-radius:var(--radius-md);padding:12px;min-width:0;">' +
+        '<div style="font-size:11.5px;color:var(--text-muted);">' + label + '</div>' +
+        '<div style="margin-top:4px;"><strong id="' + id + '" style="font-family:var(--font-mono);font-size:20px;">-</strong> <span style="font-size:11px;color:var(--text-muted);">฿/เดือน</span></div>' +
+        '<div id="' + id + 'Diff" style="font-size:11.5px;margin-top:2px;"></div></div>';
+    };
+
+    var basisLabel = { range: "เวลาจากโน้ต", end: "บันทึก = เวลาจบ", start: "บันทึก = เวลาเริ่ม" };
+    var sessionRows = tou.sessions.slice().reverse().map(function(s) {
+      return '<tr>' +
+        '<td style="white-space:nowrap;">' + formatThaiDate(s.iso) + '</td>' +
+        '<td class="mono" style="white-space:nowrap;font-size:11.5px;">' + escHtml(s.start.slice(5)) + ' → ' + escHtml(s.end.slice(5)) + '</td>' +
+        '<td class="mono">' + s.kwh.toFixed(2) + '</td>' +
+        '<td class="mono" style="color:' + (s.onPeakKwh > 0 ? "var(--amber)" : "var(--text-subtle)") + ';">' + s.onPeakKwh.toFixed(2) + '</td>' +
+        '<td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">' + basisLabel[s.timeBasis] + (s.durationSource === "estimated" ? " · ประมาณระยะเวลา" : "") + '</td>' +
+      '</tr>';
+    }).join("");
+
+    return '<div class="card" id="touCalc" data-on="' + t.onPeakKwh + '" data-off="' + t.offPeakKwh + '" data-months="' + tou.months + '">' +
+      '<div class="card-header"><div><div class="card-title">' + title + '</div>' +
+      '<div class="card-subtitle">คำนวณจากเวลาชาร์จบ้านจริง ' + tou.sessions.length + ' ครั้ง ในช่วง ' + tou.spanDays + ' วัน · On-Peak = จ.-ศ. 09:00-22:00</div></div></div>' +
+
+      '<div style="margin-bottom:16px;">' +
+        '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12.5px;margin-bottom:6px;">' +
+          '<span>ชาร์จบ้านเฉลี่ย <strong class="mono">' + fmtNum(evKwhMonth, 0) + '</strong> kWh/เดือน</span>' +
+          '<span>ตอนนี้ชาร์จช่วง Off-Peak อยู่แล้ว <strong class="mono" style="color:var(--emerald);">' + offShare.toFixed(0) + '%</strong></span>' +
+        '</div>' +
+        '<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">' +
+          '<div style="width:' + offShare.toFixed(1) + '%;background:var(--emerald);" title="Off-Peak ' + fmtNum(t.offPeakKwh, 1) + ' kWh"></div>' +
+          '<div style="flex:1;background:var(--amber);" title="On-Peak ' + fmtNum(t.onPeakKwh, 1) + ' kWh"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:14px;font-size:11px;color:var(--text-muted);margin-top:4px;">' +
+          '<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--emerald);"></span> Off-Peak ' + fmtNum(t.offPeakKwh, 1) + ' kWh</span>' +
+          '<span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--amber);"></span> On-Peak ' + fmtNum(t.onPeakKwh, 1) + ' kWh</span>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:6px;">' +
+        input("touRateOn", "อัตรา On-Peak (฿/kWh)", state.rateOnPeak, "0.01", "") +
+        input("touRateOff", "อัตรา Off-Peak (฿/kWh)", state.rateOffPeak, "0.01", "") +
+        input("touHouseKwh", "ไฟบ้านที่ไม่ใช่รถ (kWh/เดือน)", houseKwh, "1", "หน่วยในบิล − หน่วยที่ชาร์จรถ") +
+        input("touHousePct", "ไฟบ้านช่วง On-Peak (%)", housePct, "1", "เช่น เปิดแอร์/ทำงานกลางวันวันธรรมดา") +
+        input("touService", "ค่าบริการที่เพิ่มขึ้น (฿/เดือน)", serviceDelta, "0.01", "") +
+        input("touMeter", "ค่าเปลี่ยนมิเตอร์ (฿ ครั้งเดียว)", meterCost, "1", "สอบถาม กฟภ./กฟน.") +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">อัตราปกติที่ใช้เทียบ <strong class="mono">' + state.unitRate.toFixed(2) + '</strong> ฿/kWh (แก้ได้ในหน้าตั้งค่า) · ให้ใส่อัตรา TOU แบบเดียวกัน คือรวม Ft และ VAT แล้ว ค่าเริ่มต้นเป็นค่าประมาณ ควรเทียบกับบิลหรือประกาศการไฟฟ้าล่าสุด</div>' +
+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">ค่าชาร์จรถที่บ้านต่อเดือน</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;">' +
+        resultBox("touEvFlat", "ตอนนี้ (อัตราเดียว)", "var(--text-muted)") +
+        resultBox("touEvAsIs", "TOU · ชาร์จเวลาเดิม", "var(--primary)") +
+        resultBox("touEvOff", "TOU · ย้ายไปชาร์จ Off-Peak ทั้งหมด", "var(--emerald)") +
+      '</div>' +
+
+      '<div style="font-size:13px;font-weight:600;margin-bottom:8px;">ผลต่อบิลทั้งบ้าน (รวมไฟบ้านและค่าบริการ)</div>' +
+      '<div id="touVerdict" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;"></div>' +
+
+      '<details style="margin-top:16px;">' +
+        '<summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--primary);">ดูการแบ่งช่วงเวลาของแต่ละครั้ง (' + tou.sessions.length + ' ครั้ง)</summary>' +
+        '<div class="table-wrapper" style="margin-top:10px;"><table class="data-table"><thead><tr><th>วันที่</th><th>ช่วงชาร์จ (ประมาณ)</th><th>kWh</th><th>On-Peak kWh</th><th>ที่มาของเวลา</th></tr></thead><tbody>' + sessionRows + '</tbody></table></div>' +
+        '<div style="font-size:11.5px;color:var(--text-muted);margin-top:8px;line-height:1.6;">ครั้งที่ไม่มีระยะเวลา ประมาณจาก kWh ÷ ' + tou.chargerKw.toFixed(2) + ' kW (' + (tou.chargerKwSource === "observed" ? "กำลังชาร์จบ้านเฉลี่ยจากครั้งที่บันทึกเวลาไว้" : "ค่าเริ่มต้น") + ') · เวลาที่บันทึกช่วง 04:00-12:00 ถือเป็นเวลาชาร์จเสร็จ นอกนั้นถือเป็นเวลาเริ่ม · ไม่ได้นับวันหยุดราชการ (ส่วน On-Peak จึงอาจสูงกว่าจริงเล็กน้อย)</div>' +
+      '</details>' +
+    '</div>';
+  }
+
+  function updateTouCalc() {
+    var card = document.getElementById("touCalc");
+    if (!card) return;
+    var num = function(id) { var v = parseFloat(document.getElementById(id).value); return isNaN(v) ? 0 : v; };
+    var months = parseFloat(card.getAttribute("data-months")) || 1;
+    var onKwh = (parseFloat(card.getAttribute("data-on")) || 0) / months;
+    var offKwh = (parseFloat(card.getAttribute("data-off")) || 0) / months;
+    var flat = state.unitRate;
+    var rOn = num("touRateOn"), rOff = num("touRateOff");
+    var houseKwh = num("touHouseKwh"), housePct = Math.min(100, num("touHousePct")) / 100;
+    var service = num("touService"), meter = num("touMeter");
+
+    var evFlat = (onKwh + offKwh) * flat;
+    var evAsIs = onKwh * rOn + offKwh * rOff;
+    var evOff = (onKwh + offKwh) * rOff;
+    var houseDelta = houseKwh * (housePct * rOn + (1 - housePct) * rOff - flat);
+
+    var setVal = function(id, v, base) {
+      document.getElementById(id).innerText = fmtNum(v, 0);
+      var diffEl = document.getElementById(id + "Diff");
+      if (base === null) { diffEl.innerHTML = '<span style="color:var(--text-muted);">' + fmtNum(onKwh + offKwh, 0) + ' kWh × ' + flat.toFixed(2) + ' ฿</span>'; return; }
+      var d = base - v;
+      diffEl.innerHTML = d >= 0
+        ? '<span style="color:var(--emerald);font-weight:600;">ถูกลง ' + fmtNum(d, 0) + ' ฿</span>'
+        : '<span style="color:var(--rose);font-weight:600;">แพงขึ้น ' + fmtNum(-d, 0) + ' ฿</span>';
+    };
+    setVal("touEvFlat", evFlat, null);
+    setVal("touEvAsIs", evAsIs, evFlat);
+    setVal("touEvOff", evOff, evFlat);
+
+    var verdict = function(label, evSaving) {
+      var net = evSaving - houseDelta - service;
+      var good = net > 0;
+      var payback = good && meter > 0 ? Math.ceil(meter / net) : null;
+      return '<div style="padding:12px 14px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:3px solid ' + (good ? "var(--emerald)" : "var(--rose)") + ';">' +
+        '<div style="font-size:11.5px;color:var(--text-muted);">' + label + '</div>' +
+        '<div style="margin-top:4px;font-size:15px;font-weight:700;color:' + (good ? "var(--emerald)" : "var(--rose)") + ';">' +
+          (good ? "คุ้ม · ประหยัด " : "ไม่คุ้ม · จ่ายเพิ่ม ") + '<span class="mono">' + fmtNum(Math.abs(net), 0) + '</span> ฿/เดือน</div>' +
+        '<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;line-height:1.6;">' +
+          'ค่าชาร์จรถ ' + (evSaving >= 0 ? "−" : "+") + fmtNum(Math.abs(evSaving), 0) + ' · ไฟบ้าน ' + (houseDelta >= 0 ? "+" : "−") + fmtNum(Math.abs(houseDelta), 0) + ' · ค่าบริการ +' + fmtNum(service, 0) + ' ฿' +
+          (good ? '<br>ปีละประมาณ <strong class="mono">' + fmtNum(net * 12, 0) + '</strong> ฿' + (payback !== null ? ' · คืนทุนค่ามิเตอร์ใน ~' + payback + ' เดือน' : '') : '') +
+        '</div></div>';
+    };
+    document.getElementById("touVerdict").innerHTML =
+      verdict("ถ้าชาร์จเวลาเดิม", evFlat - evAsIs) +
+      verdict("ถ้าย้ายไปชาร์จ Off-Peak ทั้งหมด (22:00-09:00 หรือเสาร์-อาทิตย์)", evFlat - evOff);
+  }
+
+  function bindTouCalc() {
+    if (!document.getElementById("touCalc")) return;
+    var persist = {
+      touRateOn: "ev_rate_onpeak",
+      touRateOff: "ev_rate_offpeak",
+      touHouseKwh: "ev_tou_house_kwh",
+      touHousePct: "ev_tou_house_onpeak_pct",
+      touService: "ev_tou_service_delta",
+      touMeter: "ev_tou_meter_cost"
+    };
+    document.querySelectorAll(".tou-input").forEach(function(el) {
+      el.oninput = function() {
+        var v = parseFloat(el.value);
+        if (!isNaN(v)) {
+          if (el.id === "touRateOn") state.rateOnPeak = v;
+          if (el.id === "touRateOff") state.rateOffPeak = v;
+          try { localStorage.setItem(persist[el.id], String(v)); } catch (e) {}
+        }
+        updateTouCalc();
+      };
+    });
+    updateTouCalc();
   }
 
   function formatThaiDate(iso) {
@@ -4434,6 +4601,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function bindViewEvents() {
+    bindTouCalc();
+
     var rangeSlider = document.getElementById("rangeSocSlider");
     if (rangeSlider) {
       rangeSlider.oninput = function() {
@@ -4703,8 +4872,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         e.preventDefault();
         var cap = parseFloat(document.getElementById("cfgBatteryCapacity").value) || 68.5;
         var rate = parseFloat(document.getElementById("cfgUnitRate").value) || 4.90;
-        var onPeak = parseFloat(document.getElementById("cfgRateOnPeak").value) || 4.70;
-        var offPeak = parseFloat(document.getElementById("cfgRateOffPeak").value) || 2.60;
+        var onPeak = parseFloat(document.getElementById("cfgRateOnPeak").value) || 6.60;
+        var offPeak = parseFloat(document.getElementById("cfgRateOffPeak").value) || 3.25;
         var petRate = parseFloat(document.getElementById("cfgPetrolRate").value) || 38.5;
         var petKmL = parseFloat(document.getElementById("cfgPetrolKmL").value) || 16.0;
         var vName = document.getElementById("cfgVehicleName").value.trim() || "XPENG G6 STD";
@@ -4762,8 +4931,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
 
           state.batteryCapacity = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 68.5;
           state.unitRate = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.rate) || 4.90;
-          state.rateOnPeak = 4.70;
-          state.rateOffPeak = 2.60;
+          state.rateOnPeak = 6.60;
+          state.rateOffPeak = 3.25;
           state.petrolRate = 38.5;
           state.petrolKmPerL = 16.0;
           state.vehicleName = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.vehicle) || "XPENG G6 STD";

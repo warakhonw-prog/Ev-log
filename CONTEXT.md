@@ -86,6 +86,7 @@ d:\ev\
 │           dashboardData.ts         # Google Sheets Data Pipeline & Normalization
 │           dashboardView.ts         # Executive Web Dashboard HTML/SVG Renderer
 │           battery.ts               # Battery Health & Telemetry Pro (SoH, Range Predictor, DC Profiler)
+│           tou.ts                   # TOU What-If: แยก kWh ชาร์จบ้านเป็น On/Off-Peak
 │
 ├───config/                          # [Python Legacy]
 ├───models/                          # [Python Legacy]
@@ -254,11 +255,14 @@ export interface PeriodSummary {
 - [x] **Dynamic Range Predictor**: ใช้อัตรากินไฟจริงตามช่วงความเร็ว (≥ 60 km) ถ้าข้อมูลไม่พอใช้ค่าเฉลี่ยคูณตัวปรับ
 - [x] **DC Charging Profiler**: ความเร็วเฉลี่ยต่อครั้ง และจุดตัด SOC ที่แนะนำ (ใช้ข้อมูลจริงเมื่อมี SOC จบ ≤85% และ >85% อย่างละ ≥ 2 ครั้ง)
 
-### ⚡ แผนที่ 3: Smart TOU & Home Wallbox IoT (ระดับความสำคัญ: ปานกลาง)
-- [ ] **TOU Charging Cost Classifier**: แยกสถิติชาร์จบ้าน On-Peak (09:00 - 22:00 น. วันทำงาน) vs Off-Peak (22:00 - 09:00 น. และวันหยุด)
-- [ ] **TOU LINE Reminder**: ตั้ง Cron Trigger แจ้งเตือนผ่าน LINE เวลา 22:00 น. ให้เริ่มเสียบชาร์จ
-- [ ] **Solar Self-Consumption Estimator**: ประเมินมูลค่าเงินที่ประหยัดได้จากการชาร์จไฟจากระบบ Solar Rooftop ในช่วงกลางวัน
-- [ ] **Smart Meter Webhook Integration**: เพิ่ม API Endpoint รับค่า kWh จริงจาก Smart Breaker / Home Assistant / Tuya เข้าชีตอัตโนมัติ
+### ⚡ แผนที่ 3: Smart TOU & Home Wallbox IoT (พักไว้: ที่บ้านยังไม่มีมิเตอร์ TOU)
+- [x] **TOU What-If Calculator**: `tou.ts` → `analyzeTou(rows)` แนบใน `/api/data` ที่ `data.tou` แสดงผลในหน้า `/cost-analysis`
+  - แยก kWh การชาร์จบ้านตามนาทีที่ชาร์จจริง On-Peak = จ.-ศ. 09:00-22:00 (ไม่ได้นับวันหยุดราชการ)
+  - ช่วงเวลาชาร์จ: ถ้าโน้ตมี "HH:MM - HH:MM" ใช้ช่วงนั้น, ถ้าเวลาที่บันทึกอยู่ในช่วง 04:00-12:00 ถือเป็นเวลาจบ, นอกนั้นถือเป็นเวลาเริ่ม, ถ้าไม่มีระยะเวลาประมาณจาก kWh ÷ กำลังชาร์จบ้านที่วัดได้
+  - การคิดเงินทำฝั่ง client (อัตราและการใช้ไฟของบ้านปรับได้ บันทึกใน localStorage `ev_rate_onpeak`, `ev_rate_offpeak`, `ev_tou_*`)
+- [ ] **TOU Charging Cost Classifier / LINE Reminder 22:00**: รอเปลี่ยนเป็นมิเตอร์ TOU
+- [ ] **Solar Self-Consumption Estimator**
+- [ ] **Smart Meter Webhook Integration**: ไม่ต้องรอมิเตอร์ TOU
 
 ### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (ระดับความสำคัญ: ถัดไป)
 - [ ] **Multi-Vehicle Profile Switcher**: เพิ่มตัวเลือกสลับโปรไฟล์รถยนต์ที่แถบเมนู (เช่น คันที่ 1: XPENG G6, คันที่ 2: BYD / Tesla) พร้อมแยกชีตหรือแท็ก
