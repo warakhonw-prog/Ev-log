@@ -5,6 +5,7 @@ service_account.json
 *.pem
 *.key
 credentials.json
+.dev.vars
 
 # Node & Wrangler
 node_modules/
