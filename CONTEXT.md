@@ -30,6 +30,7 @@
 9. **Multi-Car Fleet** (แผนที่ 4, `/vehicles`, `/drivers`): รถหลายคัน, ตัวเลือกรถที่แถบบน, เปรียบเทียบผู้ขับ (ชื่อ LINE ของผู้ส่ง = ผู้ขับ)
 10. **Expense Export** (แผนที่ 4, `/reports`): รายงานเบิกจ่ายแยกงาน/ส่วนตัว เป็น Excel (.xlsx) และหน้าพิมพ์ PDF · LINE คำสั่ง "งาน"/"ส่วนตัว"
 11. **Auth**: API ที่แก้ข้อมูลต้องใช้ `DASHBOARD_TOKEN` (login ที่ `/login`)
+12. **Ask EV Log (AI Assistant)**: พิมพ์ถามได้ทั้งใน LINE และหน้า `/ask` ตอบจากข้อมูลชีต + ค้นเว็บด้วย Gemini Google Search (`src/assistant.ts`)
 
 ---
 
@@ -99,6 +100,7 @@ D:\EV-LOG\
 │           fleet.ts                 # Multi-Car: แท็บ Vehicles + คอลัมน์ N:P (รถ/ผู้ขับ/ประเภท)
 │           expense.ts               # รายงานเบิกจ่าย (Excel + หน้าพิมพ์ PDF)
 │           xlsx.ts                  # ตัวสร้างไฟล์ .xlsx แบบไม่พึ่ง npm
+│           assistant.ts             # ผู้ช่วย AI: สรุปข้อมูลชีตเป็นบริบท + Gemini (google_search)
 │
 ├───config/                          # [Python Legacy]
 ├───models/                          # [Python Legacy]
@@ -236,9 +238,11 @@ export interface PeriodSummary {
 - **Push vs Broadcast**: ระบบส่งรายงานจะลองส่ง Push หา `LINE_USER_ID` ก่อน หากไม่พบคอนฟิกจะ Broadcast ไปยังผู้ติดตามทุกคนทันที
 
 ### 6. Auth & CORS (`src/auth.ts`, ต้นฟังก์ชัน `fetch` ใน `index.ts`)
-- **ต้องยืนยันตัวตน**: `POST/PUT/DELETE /api/records`, `POST /api/vehicles`, `GET /api/cron/trigger` (ตรวจรวมที่ `isWriteEndpoint` ก่อนเข้า router)
+- **ต้องยืนยันตัวตน**: `POST/PUT/DELETE /api/records`, `POST /api/vehicles`, `GET /api/cron/trigger`, `POST /api/ask`, `GET/POST/DELETE /api/admins` (ตรวจรวมที่ `isWriteEndpoint` ก่อนเข้า router) · `GET /api/me` บอกสถานะ login (ไม่ต้องยืนยันตัวตน)
 - **ไม่ต้องยืนยันตัวตน (ตั้งใจเปิดไว้)**: หน้า dashboard ทุกหน้า, `/api/data`, `/api/battery`, `GET /api/vehicles`, `/api/export.xlsx`, `/report/expense`, `/health` · LINE webhook (`POST /`, `/callback`) ใช้ LINE signature แทน
-- **2 วิธีเข้าใช้**: `Authorization: Bearer <DASHBOARD_TOKEN>` (สคริปต์/curl) หรือ login ที่ `/login` → cookie `evlog_session` = `<exp>.<HMAC(token, "evlog-session:"+exp)>` อายุ 30 วัน, HttpOnly, Secure, SameSite=Strict · `/logout` ล้าง cookie
+- **3 วิธีเข้าใช้**: `Authorization: Bearer <DASHBOARD_TOKEN>` (สคริปต์/curl) · login ที่ `/login` ด้วย**บัญชีแอดมิน** (ชื่อผู้ใช้ + รหัสผ่าน) · หรือ login ด้วย token (เว้นชื่อผู้ใช้ว่าง ใช้ตั้งบัญชีแรก/กู้คืน) → cookie `evlog_session` อายุ 30 วัน, HttpOnly, Secure, SameSite=Strict · `/logout` ล้าง cookie
+  - cookie แบบ token: `<exp>.<HMAC(token, "evlog-session:"+exp)>` · แบบบัญชี: `<exp>.<username b64url>.<รุ่นรหัสผ่าน>.<HMAC(token, "evlog-session:exp:user:ver")>` ตรวจกับแท็บ Admins ทุกครั้ง (เปลี่ยนรหัสหรือลบบัญชี = session ของบัญชีนั้นใช้ไม่ได้ทันที)
+- **บัญชีแอดมิน** (`src/admins.ts`): แท็บ `Admins` (Username, PasswordHash, Salt, Iterations, UpdatedAt, FailedCount, LockedUntil) · PBKDF2-SHA256 40,000 รอบ + salt ต่อบัญชี (~5 ms CPU, จำนวนรอบเก็บต่อแถวจึงเพิ่มได้ภายหลัง) · ผิด 5 ครั้งล็อก 15 นาที · ชื่อผู้ใช้เก็บเป็นตัวพิมพ์เล็ก · จัดการได้ที่หน้าตั้งค่า (ส่วน "บัญชีแอดมิน")
 - ถ้ายิงด้วย cookie ต้องไม่มี `Origin` จากเว็บอื่น (กัน CSRF) · `next` หลัง login รับเฉพาะ path ภายใน (`safeNextPath`)
 - ไม่ได้ตั้ง `DASHBOARD_TOKEN` = endpoint ที่แก้ข้อมูลตอบ 503 (fail closed) · เปลี่ยนค่า token = session เดิมใช้ไม่ได้ทั้งหมด
 - **CORS**: endpoint อ่านอย่างเดียวใช้ `corsHeaders` (`*`, GET) · endpoint ที่แก้ข้อมูลใช้ `writeHeaders` (ไม่มี CORS, `no-store`) · preflight อนุญาตแค่ GET
@@ -263,6 +267,7 @@ export interface PeriodSummary {
 | **TOU What-If Calculator** | ✅ เสร็จสมบูรณ์ | `src/tou.ts`, `src/dashboardView.ts` | มิเตอร์ TOU คุ้มไหม (แผนที่ 3 ส่วนที่ไม่ต้องรอมิเตอร์) |
 | **Multi-Car Fleet & Drivers** | ✅ เสร็จสมบูรณ์ | `src/fleet.ts`, `src/dashboardView.ts` | แท็บ Vehicles, ตัวเลือกรถ, เปรียบเทียบผู้ขับ (แผนที่ 4) |
 | **Expense Export (Excel/PDF)** | ✅ เสร็จสมบูรณ์ | `src/expense.ts`, `src/xlsx.ts` | `/api/export.xlsx`, `/report/expense` (แผนที่ 4) |
+| **Ask EV Log (AI Assistant)** | ✅ เสร็จสมบูรณ์ | `src/assistant.ts`, `src/index.ts`, `src/dashboardView.ts` | LINE (เฉพาะ `LINE_ALLOWED_USER_IDS`) + หน้า `/ask` (`POST /api/ask` ต้อง login) |
 
 ### ข้อมูลระบบ Production ปัจจุบัน:
 - **Production Version**: `ad6d703f-82e7-4208-9aa1-e59b03571bed` (deploy 24 ก.ย. 2026 จาก commit `c7c9363`)
@@ -298,6 +303,11 @@ export interface PeriodSummary {
 - ⏸️ **TOU Charging Cost Classifier / LINE Reminder 22:00**: รอติดมิเตอร์ TOU ที่บ้าน
 - ⏸️ **Solar Self-Consumption Estimator**: ยังไม่มีโซลาร์เซลล์
 - ⏳ **Smart Meter Webhook Integration**: ทำได้เมื่อมี Smart Plug / Home Assistant (ไม่ต้องรอมิเตอร์ TOU)
+
+### 💬 Ask EV Log: ผู้ช่วย AI ถามข้อมูล (เสร็จแล้ว)
+- `askEvAssistant(question, payload, env, {channel, history})`: สรุปข้อมูลชีตด้วย `buildDataContext` (ตารางสรุปรายเดือน, สุขภาพแบตแยกคัน, TOU, รายการล่าสุด ≤ 400 แถวแบบ CSV) ใส่ใน `systemInstruction` แล้วเรียก Gemini พร้อม `tools: [{ google_search: {} }]` แหล่งอ้างอิงมาจาก `groundingMetadata.groundingChunks` (เก็บเฉพาะ http/https)
+- **LINE**: ข้อความที่ไม่ใช่คำสั่ง ("งาน"/"ส่วนตัว") และไม่ใช่คำทักทาย/วิธีใช้ = คำถาม ตอบเฉพาะแชท 1:1 ของ userId ที่อยู่ใน `LINE_ALLOWED_USER_IDS` (คั่นด้วย ,) หรือ `LINE_USER_ID` · ไม่ได้ตั้ง = ปิด (fail closed) และบอท reply รหัส userId ของผู้ถามเพื่อใช้ตั้งค่า · มี loading animation ระหว่างรอ
+- **Dashboard**: หน้า `/ask` แชท (ประวัติเก็บในหน่วยความจำของหน้า ส่ง 8 ข้อความล่าสุดเป็น history) · `POST /api/ask` อยู่ใน auth gate เพราะเรียก AI มีค่าใช้จ่าย
 
 ### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (เสร็จแล้ว)
 - [x] **Multi-Vehicle**: `fleet.ts` → แท็บ `Vehicles` (อ่าน `readVehicles`, บันทึก `saveVehicle`), `GET/POST /api/vehicles`
@@ -338,6 +348,7 @@ npx wrangler secret put SPREADSHEET_ID
 npx wrangler secret put GOOGLE_CLIENT_EMAIL
 npx wrangler secret put GOOGLE_PRIVATE_KEY
 npx wrangler secret put DASHBOARD_TOKEN   # สร้างค่าสุ่ม เช่น openssl rand -base64 32
+npx wrangler secret put LINE_ALLOWED_USER_IDS   # userId ของ LINE ที่ถามผู้ช่วย AI ได้ (คั่นด้วย ,)
 ```
 
 ### การ Deploy ขึ้น Production

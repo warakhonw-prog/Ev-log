@@ -86,6 +86,22 @@ export async function fetchLineDisplayName(userId: string | undefined, accessTok
   }
 }
 
+/**
+ * แสดงจุดกำลังพิมพ์ในแชท 1:1 ระหว่างรอคำตอบ (ล้มเหลวได้โดยไม่กระทบการทำงาน)
+ */
+export async function showLineLoading(userId: string | undefined, accessToken: string, seconds = 20): Promise<void> {
+  if (!userId) return;
+  try {
+    await fetch("https://api.line.me/v2/bot/chat/loading/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ chatId: userId, loadingSeconds: seconds }),
+    });
+  } catch (e) {
+    console.warn("[LINE Loading] failed:", e);
+  }
+}
+
 export async function replyLineMessage(
   replyToken: string,
   messages: any[],

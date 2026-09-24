@@ -1891,6 +1891,13 @@ table.data-table tr:hover td {
         </a>
       </li>
 
+      <li>
+        <a class="nav-link" data-view="ask">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          ถามข้อมูล (AI)
+        </a>
+      </li>
+
       <div class="nav-section-title" style="margin-top:8px">วิเคราะห์และข้อมูลรถ</div>
       <li>
         <a class="nav-link" data-view="vehicles">
@@ -2062,6 +2069,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       try { return localStorage.getItem("ev_default_driver") || ""; } catch (e) { return ""; }
     })(),
     driverPeriod: "all",
+    askHistory: [],
+    askBusy: false,
     filterStation: "all",
     filterSearch: "",
     editRecord: null,
@@ -2328,6 +2337,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       "trips": ["บันทึกการเดินทาง (Trips)", "ติดตามระยะทาง อัตรากินไฟ และประวัติการขับขี่"],
       "add-trip": ["บันทึกการเดินทางใหม่ (New Trip)", "กรอกข้อมูลระยะทาง เลขไมล์ อัตราสิ้นเปลือง และคำนวณพลังงานที่ใช้"],
       "vehicles": ["โปรไฟล์รถยนต์ (Fleet)", "จัดการรถหลายคัน ความจุแบตเตอรี่ และสถิติแยกตามคัน"],
+      "ask": ["ถามข้อมูล (AI Assistant)", "พิมพ์ถามเรื่องการเดินทาง การชาร์จ แบตเตอรี่ หรือข้อมูลภายนอก แล้วให้ AI หาคำตอบ"],
       "drivers": ["เปรียบเทียบผู้ขับ (Drivers)", "ใครขับประหยัดไฟที่สุด เทียบอัตรากินไฟ ต้นทุน และระยะทางของแต่ละคน"],
       "vehicle-detail": ["สุขภาพแบตเตอรี่ (Battery Health)", "ความจุใช้งานจริง แนวโน้มการเสื่อม ระยะทางตามสไตล์ขับ และความเร็วชาร์จ DC"],
       "cost-analysis": ["วิเคราะห์ค่าใช้จ่ายและประหยัด", "เปรียบเทียบต้นทุนต่อกิโลเมตรกับรถน้ำมันเบนซิน"],
@@ -2367,6 +2377,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       case "drivers":
         html = renderDriversView(rows);
         break;
+      case "ask":
+        html = renderAskView();
+        break;
       case "cost-analysis":
         html = renderCostAnalysisView(agg);
         break;
@@ -2377,7 +2390,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         html = renderManageView(rows);
         break;
       case "settings":
-        html = renderSettingsView();
+        html = renderSettingsView() + adminPanelShell();
         break;
       default:
         html = renderDashboardView(agg, rows);
@@ -3305,6 +3318,226 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '<tbody>' + rowsHtml + '</tbody></table>' +
       '</div>' +
     '</div>';
+  }
+
+  // ---------- บัญชีแอดมิน (หน้าตั้งค่า) ----------
+  function adminPanelShell() {
+    return '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;max-width:800px;margin:20px auto 0;width:100%;background:var(--surface);">' +
+      '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:6px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> บัญชีแอดมิน (Admin Accounts)</h4>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">ชื่อผู้ใช้และรหัสผ่านสำหรับเข้าหน้า /login · เก็บในแท็บ Admins ของชีตแบบเข้ารหัส (hash) · ใส่รหัสผิด 5 ครั้งจะล็อก 15 นาที · Dashboard token ยังใช้กู้คืนได้เสมอ</div>' +
+      '<div id="adminPanel" style="font-size:13px;color:var(--text-muted);">กำลังโหลด...</div>' +
+    '</div>';
+  }
+
+  function renderAdminPanel(me, admins) {
+    var panel = document.getElementById("adminPanel");
+    if (!panel) return;
+    if (!me) {
+      panel.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">' +
+        '<span>ยังไม่ได้เข้าสู่ระบบ ต้อง login ก่อนจัดการบัญชี</span>' +
+        '<a class="btn btn-primary btn-sm" href="/login?next=/settings" style="text-decoration:none;">เข้าสู่ระบบ</a></div>';
+      return;
+    }
+    var rows = admins.length === 0
+      ? '<div style="padding:10px 0;">ยังไม่มีบัญชี สร้างบัญชีแรกด้านล่าง (ตอนนี้เข้าด้วย Dashboard token)</div>'
+      : admins.map(function(a) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">' +
+            '<div><strong style="color:var(--text-main);">' + escHtml(a.username) + '</strong>' +
+              (a.username === me ? ' <span class="badge badge-emerald">คุณ</span>' : '') +
+              (a.locked ? ' <span class="badge badge-rose">ล็อกชั่วคราว</span>' : '') +
+              '<div style="font-size:11.5px;">เปลี่ยนรหัสล่าสุด ' + escHtml(a.updatedAt || "-") + '</div></div>' +
+            '<div style="display:flex;gap:6px;">' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-admin-edit="' + escHtml(a.username) + '">เปลี่ยนรหัส</button>' +
+              '<button type="button" class="btn btn-danger btn-sm" data-admin-delete="' + escHtml(a.username) + '">ลบ</button>' +
+            '</div></div>';
+        }).join("");
+
+    panel.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">' +
+        '<span>เข้าสู่ระบบเป็น <strong style="color:var(--text-main);">' + escHtml(me === "token" ? "Dashboard token" : me) + '</strong></span>' +
+        '<a class="btn btn-secondary btn-sm" href="/logout" style="text-decoration:none;">ออกจากระบบ</a>' +
+      '</div>' +
+      rows +
+      '<form id="formAdmin" style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="font-weight:600;color:var(--text-main);" id="adminFormTitle">เพิ่มบัญชี / เปลี่ยนรหัสผ่าน</div>' +
+        '<div class="form-grid">' +
+          '<div class="form-group" style="margin:0;"><label>ชื่อผู้ใช้</label><input type="text" class="form-control" id="adminUsername" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32" required placeholder="เช่น max หรือ jum"></div>' +
+          '<div class="form-group" style="margin:0;"><label>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</label><input type="password" class="form-control" id="adminPassword" autocomplete="new-password" minlength="8" maxlength="200" required></div>' +
+        '</div>' +
+        '<div class="form-group" style="margin:0;"><label>ยืนยันรหัสผ่าน</label><input type="password" class="form-control" id="adminPassword2" autocomplete="new-password" minlength="8" maxlength="200" required></div>' +
+        '<div style="display:flex;justify-content:flex-end;"><button type="submit" class="btn btn-primary" id="btnSaveAdmin">บันทึกบัญชี</button></div>' +
+      '</form>';
+
+    document.querySelectorAll("[data-admin-edit]").forEach(function(el) {
+      el.onclick = function() {
+        var u = el.getAttribute("data-admin-edit");
+        document.getElementById("adminUsername").value = u;
+        document.getElementById("adminFormTitle").innerText = "เปลี่ยนรหัสผ่านของ " + u;
+        document.getElementById("adminPassword").focus();
+      };
+    });
+    document.querySelectorAll("[data-admin-delete]").forEach(function(el) {
+      el.onclick = async function() {
+        var u = el.getAttribute("data-admin-delete");
+        if (!confirm("ลบบัญชี " + u + " ใช่หรือไม่?" + (u === me ? " (คุณจะถูกออกจากระบบ)" : ""))) return;
+        el.disabled = true;
+        try {
+          var res = await apiWrite("/api/admins?username=" + encodeURIComponent(u), { method: "DELETE" });
+          var json = await res.json();
+          if (!json.ok) throw new Error(json.error || "Unknown");
+          showToast("ลบบัญชี " + u + " แล้ว", "success");
+          if (u === me) { window.location.href = "/login?next=/settings"; return; }
+          renderAdminPanel(me, json.admins || []);
+        } catch (err) {
+          showToast("ลบไม่สำเร็จ: " + err.message, "error");
+          el.disabled = false;
+        }
+      };
+    });
+    document.getElementById("formAdmin").onsubmit = async function(e) {
+      e.preventDefault();
+      var u = document.getElementById("adminUsername").value.trim().toLowerCase();
+      var p1 = document.getElementById("adminPassword").value;
+      var p2 = document.getElementById("adminPassword2").value;
+      if (p1 !== p2) { showToast("รหัสผ่านทั้งสองช่องไม่ตรงกัน", "error"); return; }
+      var btn = document.getElementById("btnSaveAdmin");
+      btn.disabled = true; btn.innerText = "กำลังบันทึก...";
+      try {
+        var res = await apiWrite("/api/admins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: u, password: p1 })
+        });
+        var json = await res.json();
+        if (!json.ok) throw new Error(json.error || "Unknown");
+        showToast("บันทึกบัญชี " + u + " แล้ว", "success");
+        renderAdminPanel(me, json.admins || []);
+      } catch (err) {
+        showToast("บันทึกไม่สำเร็จ: " + err.message, "error");
+        btn.disabled = false; btn.innerText = "บันทึกบัญชี";
+      }
+    };
+  }
+
+  async function loadAdminPanel() {
+    if (!document.getElementById("adminPanel")) return;
+    try {
+      var meRes = await fetch("/api/me");
+      var meJson = await meRes.json();
+      if (!meJson.authenticated) { renderAdminPanel(null, []); return; }
+      var res = await fetch("/api/admins");
+      var json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Unknown");
+      renderAdminPanel(meJson.user, json.admins || []);
+    } catch (err) {
+      var panel = document.getElementById("adminPanel");
+      if (panel) panel.innerHTML = '<span style="color:var(--rose);">โหลดบัญชีไม่สำเร็จ: ' + escHtml(err.message) + '</span>';
+    }
+  }
+
+  // ---------- ถามข้อมูล (AI Assistant) ----------
+  function askMessageHtml(m) {
+    var isUser = m.role === "user";
+    var sources = (m.sources || []).filter(function(s) { return /^https?:[/][/]/.test(s.uri || ""); });
+    return '<div style="display:flex;justify-content:' + (isUser ? 'flex-end' : 'flex-start') + ';">' +
+      '<div style="max-width:min(680px,88%);padding:10px 14px;border-radius:14px;' +
+        (isUser ? 'background:var(--primary);color:#fff;border-bottom-right-radius:4px;' : 'background:var(--surface-subtle);color:var(--text-main);border:1px solid var(--border);border-bottom-left-radius:4px;') +
+        'font-size:13.5px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;">' +
+        (m.error ? '<span style="color:var(--rose);">' + escHtml(m.text) + '</span>' : escHtml(m.text)) +
+        (sources.length ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;white-space:normal;"><div style="color:var(--text-muted);margin-bottom:4px;">แหล่งข้อมูลจากเว็บ</div>' +
+          sources.map(function(s) { return '<div><a href="' + escHtml(s.uri) + '" target="_blank" rel="noopener noreferrer" style="color:var(--primary);">' + escHtml(s.title) + '</a></div>'; }).join("") + '</div>' : '') +
+      '</div></div>';
+  }
+
+  function renderAskView() {
+    var history = state.askHistory || [];
+    var suggestions = [
+      "เดือนนี้ค่าชาร์จรวมเท่าไร แยก AC กับ DC",
+      "ทริปไหนกินไฟมากที่สุด เพราะอะไร",
+      "แบตเตอรี่ของฉันยังดีอยู่ไหม",
+      "ชาร์จ DC ที่ไหนถูกที่สุด",
+      "ค่า Ft งวดนี้เท่าไร",
+      "สถานีชาร์จ DC ใกล้องครักษ์ นครนายก"
+    ];
+    var body = history.length === 0
+      ? '<div style="text-align:center;padding:24px 8px;color:var(--text-muted);">' +
+          '<div style="font-size:34px;margin-bottom:6px;">💬</div>' +
+          '<div style="font-size:14px;font-weight:600;color:var(--text-main);margin-bottom:4px;">ถามอะไรก็ได้เกี่ยวกับรถและการชาร์จของคุณ</div>' +
+          '<div style="font-size:12.5px;">ตอบจากข้อมูลในชีตของคุณ และค้นเว็บเมื่อถามเรื่องภายนอก เช่น ค่าไฟ สถานีชาร์จ สเปกรถ</div>' +
+        '</div>'
+      : history.map(askMessageHtml).join("");
+    if (state.askBusy) {
+      body += '<div style="display:flex;"><div style="padding:10px 14px;border-radius:14px;background:var(--surface-subtle);border:1px solid var(--border);font-size:13px;color:var(--text-muted);">กำลังค้นข้อมูลและเรียบเรียงคำตอบ...</div></div>';
+    }
+
+    return '<div class="card" style="display:flex;flex-direction:column;gap:14px;max-width:900px;margin:0 auto;width:100%;">' +
+      '<div class="card-header" style="margin-bottom:0;"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg> ถามข้อมูล (AI Assistant)</div>' +
+        '<div class="card-subtitle">Gemini อ่านข้อมูลทริป การชาร์จ แบตเตอรี่ และรถของคุณ พร้อมค้น Google เมื่อจำเป็น</div></div>' +
+        (history.length ? '<button type="button" class="btn btn-secondary btn-sm" id="btnAskClear">ล้างแชท</button>' : '') +
+      '</div>' +
+      '<div id="askMessages" style="display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:58vh;overflow-y:auto;padding:4px;">' + body + '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+        suggestions.map(function(q) { return '<button type="button" class="btn btn-secondary btn-sm ask-suggest" data-q="' + escHtml(q) + '"' + (state.askBusy ? ' disabled' : '') + '>' + escHtml(q) + '</button>'; }).join("") +
+      '</div>' +
+      '<form id="formAsk" style="display:flex;gap:8px;align-items:flex-end;">' +
+        '<textarea id="askInput" class="form-control" rows="2" maxlength="1000" placeholder="พิมพ์คำถาม แล้วกด Enter เพื่อส่ง (Shift+Enter ขึ้นบรรทัดใหม่)" style="flex:1;resize:vertical;min-height:44px;"' + (state.askBusy ? ' disabled' : '') + '></textarea>' +
+        '<button type="submit" class="btn btn-primary" id="btnAskSend"' + (state.askBusy ? ' disabled' : '') + '>ส่ง</button>' +
+      '</form>' +
+      '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.6;">ต้องล็อกอินก่อนใช้งาน · คำตอบเกี่ยวกับตัวเลขอิงข้อมูลในชีต ควรตรวจสอบก่อนใช้เบิกจ่าย · ถามผ่าน LINE ได้เช่นกัน (เฉพาะบัญชีที่อนุญาต)</div>' +
+    '</div>';
+  }
+
+  async function sendAskQuestion(question) {
+    var q = (question || "").trim();
+    if (!q || state.askBusy) return;
+    var history = state.askHistory || (state.askHistory = []);
+    var prior = history.filter(function(m) { return !m.error; }).slice(-8).map(function(m) { return { role: m.role, text: m.text }; });
+    history.push({ role: "user", text: q });
+    state.askBusy = true;
+    renderView();
+    try {
+      var res = await apiWrite("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, history: prior })
+      });
+      var json = await res.json();
+      if (json.ok) history.push({ role: "model", text: json.answer, sources: json.sources || [] });
+      else history.push({ role: "model", text: "ตอบไม่สำเร็จ: " + (json.error || "Unknown"), error: true });
+    } catch (err) {
+      history.push({ role: "model", text: "เชื่อมต่อไม่สำเร็จ: " + err.message, error: true });
+    } finally {
+      state.askBusy = false;
+      renderView();
+    }
+  }
+
+  function bindAskEvents() {
+    var box = document.getElementById("askMessages");
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
+    var input = document.getElementById("askInput");
+    var form = document.getElementById("formAsk");
+    if (input && !state.askBusy) input.focus();
+    if (form) {
+      form.onsubmit = function(e) {
+        e.preventDefault();
+        sendAskQuestion(input.value);
+      };
+    }
+    if (input) {
+      input.onkeydown = function(e) {
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+          e.preventDefault();
+          sendAskQuestion(input.value);
+        }
+      };
+    }
+    document.querySelectorAll(".ask-suggest").forEach(function(el) {
+      el.onclick = function() { sendAskQuestion(el.getAttribute("data-q")); };
+    });
+    var clear = document.getElementById("btnAskClear");
+    if (clear) clear.onclick = function() { state.askHistory = []; renderView(); };
   }
 
   // ---------- Multi-Car Fleet (แผนที่ 4) ----------
@@ -5041,6 +5274,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   function bindViewEvents() {
     bindTouCalc();
     bindFleetEvents();
+    bindAskEvents();
+    loadAdminPanel();
 
     var rangeSlider = document.getElementById("rangeSocSlider");
     if (rangeSlider) {

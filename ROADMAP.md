@@ -18,6 +18,7 @@
 | 3. Smart TOU & Home Wallbox IoT | ✅ ส่วนที่ใช้ได้เสร็จแล้ว · ⏸️ ที่เหลือรอมิเตอร์ TOU | ตัวคำนวณ "เปลี่ยนเป็นมิเตอร์ TOU คุ้มไหม" ใช้ได้แล้ว · ตัวแยกค่าไฟตามบิลจริงและการแจ้งเตือน 22:00 รอติดมิเตอร์ TOU |
 | 4. Multi-Car Fleet & Expense Export | ✅ เสร็จ 3/3 | รถหลายคัน, เปรียบเทียบผู้ขับ, Excel/PDF เบิกจ่าย |
 | 🔒 Security Hardening | ✅ เสร็จ | `DASHBOARD_TOKEN` สำหรับ API ที่แก้ข้อมูล |
+| 💬 Ask EV Log (AI Assistant) | ✅ เสร็จ (งานเพิ่มนอกแผน) | พิมพ์ถามใน LINE หรือหน้า `/ask` ตอบจากข้อมูลชีต + ค้นเว็บ (Gemini Google Search) |
 
 ---
 

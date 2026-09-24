@@ -11,7 +11,10 @@ import {
   formatChargingSummaryText,
   formatPeriodSummaryText,
   fetchLineDisplayName,
+  showLineLoading,
 } from "./line";
+import { askEvAssistant, isLineUserAllowed, formatAnswerForLine, AskTurn } from "./assistant";
+import { verifyAdminLogin, setAdminPassword, deleteAdmin, readAdmins, summarize, normalizeUsername } from "./admins";
 import { generatePeriodSummary } from "./reports";
 import { analyzeEVImageWithGemini } from "./gemini";
 import {
@@ -50,6 +53,7 @@ import {
   clearSessionCookie,
   safeNextPath,
   renderLoginHtml,
+  currentUser,
 } from "./auth";
 
 export default {
@@ -100,6 +104,7 @@ export default {
       }
       const form = await request.formData().catch(() => null);
       const token = (form?.get("token") || "").toString();
+      const username = normalizeUsername(form?.get("username"));
       const next = safeNextPath((form?.get("next") || "").toString());
       if (!isAuthConfigured(env)) {
         return new Response(renderLoginHtml(next, "ยังไม่ได้ตั้งค่า DASHBOARD_TOKEN บนเซิร์ฟเวอร์"), {
@@ -107,11 +112,30 @@ export default {
           headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
         });
       }
-      if (!(await checkToken(token, env))) {
-        return new Response(renderLoginHtml(next, "Token ไม่ถูกต้อง"), {
-          status: 401,
-          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+      const htmlHeaders = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" };
+      // มีชื่อผู้ใช้ = login ด้วยบัญชีแอดมิน · ไม่มี = login ด้วย DASHBOARD_TOKEN
+      if (username) {
+        let result;
+        try {
+          result = await verifyAdminLogin(username, token, env);
+        } catch (e: any) {
+          console.error("admin login error:", e);
+          return new Response(renderLoginHtml(next, "ตรวจสอบบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง"), { status: 500, headers: htmlHeaders });
+        }
+        if (!result.ok) {
+          const msg =
+            result.reason === "locked"
+              ? `บัญชีถูกล็อกชั่วคราวเพราะใส่รหัสผิดหลายครั้ง ลองใหม่หลัง ${new Date(((result.lockedUntil || 0) + 7 * 3600) * 1000).toISOString().slice(11, 16)} น. หรือเข้าด้วย Dashboard token`
+              : "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
+          return new Response(renderLoginHtml(next, msg), { status: 401, headers: htmlHeaders });
+        }
+        return new Response(null, {
+          status: 303,
+          headers: { Location: next, "Set-Cookie": await buildSessionCookie(env, result.admin), "Cache-Control": "no-store" },
         });
+      }
+      if (!(await checkToken(token, env))) {
+        return new Response(renderLoginHtml(next, "Token ไม่ถูกต้อง"), { status: 401, headers: htmlHeaders });
       }
       return new Response(null, {
         status: 303,
@@ -126,11 +150,21 @@ export default {
       });
     }
 
+    // สถานะการ login (ใช้แสดงในหน้า dashboard ไม่ต้องยืนยันตัวตน)
+    if (url.pathname === "/api/me" && request.method === "GET") {
+      const user = await currentUser(request, env);
+      return new Response(JSON.stringify({ ok: true, authenticated: !!user, user }), { headers: writeHeaders });
+    }
+
     // ทุก endpoint ที่แก้ข้อมูลใน Sheet หรือยิงข้อความ LINE ต้องยืนยันตัวตน
     const isWriteEndpoint =
       (url.pathname === "/api/records" && ["POST", "PUT", "DELETE"].includes(request.method)) ||
       (url.pathname === "/api/vehicles" && request.method === "POST") ||
-      (url.pathname === "/api/cron/trigger" && request.method === "GET");
+      (url.pathname === "/api/cron/trigger" && request.method === "GET") ||
+      // เรียก AI มีค่าใช้จ่าย จึงต้อง login เหมือน endpoint ที่แก้ข้อมูล
+      (url.pathname === "/api/ask" && request.method === "POST") ||
+      // บัญชีแอดมิน: ดู/เพิ่ม/เปลี่ยนรหัส/ลบ ต้อง login ก่อนทั้งหมด
+      (url.pathname === "/api/admins" && ["GET", "POST", "DELETE"].includes(request.method));
     if (isWriteEndpoint && !(await isAuthorized(request, env))) {
       if (!isAuthConfigured(env)) {
         return new Response(JSON.stringify({ ok: false, error: "DASHBOARD_TOKEN is not configured on the server" }), {
@@ -155,7 +189,7 @@ export default {
     const validPaths = [
       "/", "/dashboard", "/charging", "/manage", "/trips",
       "/vehicles", "/vehicle-detail", "/charging-history",
-      "/add-charging", "/cost-analysis", "/reports", "/settings", "/drivers"
+      "/add-charging", "/cost-analysis", "/reports", "/settings", "/drivers", "/ask"
     ];
     if ((request.method === "GET" || request.method === "HEAD") && validPaths.includes(url.pathname)) {
       const cleanPath = url.pathname.replace(/^\//, "");
@@ -319,6 +353,55 @@ export default {
     }
 
 
+
+    // 3.0 Ask EV Log: ถามข้อมูลจากชีต + ค้นเว็บ (ผ่าน auth gate ด้านบนแล้ว)
+    if (request.method === "POST" && url.pathname === "/api/ask") {
+      try {
+        const body: any = await request.json();
+        const question = (body.question || "").toString();
+        const history: AskTurn[] = Array.isArray(body.history) ? body.history : [];
+        const payload = await fetchDashboardDataFromSheets(env);
+        if (!payload.ok) throw new Error(payload.error || "ดึงข้อมูลชีตไม่สำเร็จ");
+        const result = await askEvAssistant(question, payload, env, { channel: "web", history });
+        return new Response(JSON.stringify({ ok: true, ...result }), { headers: writeHeaders });
+      } catch (err: any) {
+        console.error("/api/ask error:", err);
+        return new Response(JSON.stringify({ ok: false, error: err.message || String(err) }), {
+          status: 500,
+          headers: writeHeaders,
+        });
+      }
+    }
+
+    // 3.05 Admin Accounts (ผ่าน auth gate ด้านบนแล้ว)
+    if (url.pathname === "/api/admins") {
+      try {
+        if (request.method === "GET") {
+          return new Response(
+            JSON.stringify({ ok: true, admins: summarize(await readAdmins(env)), me: await currentUser(request, env) }),
+            { headers: writeHeaders }
+          );
+        }
+        if (request.method === "POST") {
+          const body: any = await request.json();
+          const me = await currentUser(request, env);
+          const saved = await setAdminPassword(body.username, (body.password || "").toString(), env);
+          const headers: Record<string, string> = { ...writeHeaders };
+          // เปลี่ยนรหัสของตัวเอง: ออก cookie ใหม่ให้เลย ไม่ต้อง login ซ้ำ
+          if (me === saved.username) headers["Set-Cookie"] = await buildSessionCookie(env, saved);
+          return new Response(JSON.stringify({ ok: true, admins: summarize(await readAdmins(env)) }), { headers });
+        }
+        const target = normalizeUsername(url.searchParams.get("username"));
+        const removed = await deleteAdmin(target, env);
+        return new Response(JSON.stringify({ ok: removed, error: removed ? undefined : "ไม่พบบัญชีนี้", admins: summarize(await readAdmins(env)) }), {
+          status: removed ? 200 : 404,
+          headers: writeHeaders,
+        });
+      } catch (err: any) {
+        console.error("/api/admins error:", err);
+        return new Response(JSON.stringify({ ok: false, error: err.message || String(err) }), { status: 400, headers: writeHeaders });
+      }
+    }
 
     // 3.1 Vehicle Profiles (แผนที่ 4)
     if (url.pathname === "/api/vehicles" && (request.method === "GET" || request.method === "POST")) {
@@ -667,6 +750,12 @@ async function handleTextEvent(event: any, env: Env): Promise<void> {
     return;
   }
 
+  const helpWords = ["help", "?", "วิธีใช้", "ช่วยเหลือ", "เมนู", "menu", "สวัสดี", "hi", "hello"];
+  if (text && !helpWords.includes(text)) {
+    await replyLineMessage(replyToken, [{ type: "text", text: await answerLineQuestion(event, env) }], env.LINE_CHANNEL_ACCESS_TOKEN);
+    return;
+  }
+
   const guide =
     "🚗 [ระบบบันทึก EV Trip & Charge Log]\n" +
     "━━━━━━━━━━━━━━━━━━━━\n" +
@@ -675,6 +764,7 @@ async function handleTextEvent(event: any, env: Env): Promise<void> {
     "📊 ดูสรุปภาพรวมแดชบอร์ด:\n" +
     "https://ev-log-bot.eb-book.workers.dev/\n\n" +
     "🏷️ ส่งรูปแล้วพิมพ์ \"งาน\" หรือ \"ส่วนตัว\" เพื่อระบุประเภทของรายการล่าสุด (ใช้ออกรายงานเบิกจ่าย)\n\n" +
+    "💬 พิมพ์ถามได้เลย เช่น \"เดือนนี้ค่าชาร์จเท่าไร\", \"ทริปไหนกินไฟที่สุด\", \"ค่า Ft งวดนี้เท่าไร\"\n\n" +
     "⚡ รายงานค่าใช้จ่ายการชาร์จไฟ (สัปดาห์/เดือน/ปี):\n" +
     "https://ev-log-bot.eb-book.workers.dev/charging";
 
@@ -791,5 +881,30 @@ async function tagLatestRecordPurpose(event: any, purpose: "business" | "persona
   } catch (err: any) {
     console.error("tagLatestRecordPurpose error:", err);
     return `⚠️ ระบุประเภทไม่สำเร็จ: ${err?.message || err}`;
+  }
+}
+
+/** ตอบคำถามจาก LINE: เฉพาะบัญชีที่อนุญาตเท่านั้น (ข้อมูลการเดินทางเป็นข้อมูลส่วนตัว) */
+async function answerLineQuestion(event: any, env: Env): Promise<string> {
+  const userId: string | undefined = event.source?.userId;
+  if (event.source?.type && event.source.type !== "user") {
+    return "💬 ถามข้อมูลได้เฉพาะในแชทส่วนตัวกับบอทเท่านั้น";
+  }
+  if (!isLineUserAllowed(userId, env)) {
+    return (
+      "🔒 บัญชีนี้ยังไม่ได้รับอนุญาตให้ถามข้อมูล\n" +
+      "เจ้าของระบบเพิ่มสิทธิ์ได้โดยตั้งค่า LINE_ALLOWED_USER_IDS บน Cloudflare Worker เป็นรหัสนี้:\n" +
+      (userId || "(ไม่พบรหัสผู้ใช้)")
+    );
+  }
+  try {
+    await showLineLoading(userId, env.LINE_CHANNEL_ACCESS_TOKEN);
+    const payload = await fetchDashboardDataFromSheets(env);
+    if (!payload.ok) throw new Error(payload.error || "ดึงข้อมูลชีตไม่สำเร็จ");
+    const result = await askEvAssistant((event.message?.text || "").toString(), payload, env, { channel: "line" });
+    return formatAnswerForLine(result);
+  } catch (err: any) {
+    console.error("answerLineQuestion error:", err);
+    return `⚠️ ตอบคำถามไม่สำเร็จ: ${err?.message || err}`;
   }
 }

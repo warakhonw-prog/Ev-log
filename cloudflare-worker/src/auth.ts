@@ -1,9 +1,11 @@
 import { Env } from "./types";
+import { AdminRecord, passwordVersion, readAdmins } from "./admins";
 
-// Auth แบบเบาสำหรับโปรเจกต์ผู้ใช้คนเดียว: secret เดียว (DASHBOARD_TOKEN)
+// Auth แบบเบาสำหรับโปรเจกต์ส่วนตัว (DASHBOARD_TOKEN เป็นกุญแจหลัก)
 // - สคริปต์/เครื่องมือ: ส่ง "Authorization: Bearer <DASHBOARD_TOKEN>"
-// - เบราว์เซอร์: login ที่ /login แล้วได้ cookie HttpOnly ที่เซ็นด้วย HMAC-SHA256 (Web Crypto)
-// เปลี่ยน DASHBOARD_TOKEN = session เดิมทั้งหมดใช้ไม่ได้ทันที
+// - เบราว์เซอร์: login ที่ /login ด้วยบัญชีแอดมิน (แท็บ Admins) หรือ token แล้วได้ cookie HttpOnly ที่เซ็นด้วย HMAC-SHA256
+//   cookie แบบ token: "<exp>.<sig>" · แบบบัญชี: "<exp>.<username b64url>.<รุ่นรหัสผ่าน>.<sig>"
+// เปลี่ยน DASHBOARD_TOKEN = session เดิมทั้งหมดใช้ไม่ได้ทันที · เปลี่ยนรหัสของบัญชีใด = session ของบัญชีนั้นใช้ไม่ได้
 
 const COOKIE_NAME = "evlog_session";
 const SESSION_TTL_SEC = 30 * 24 * 60 * 60; // 30 วัน
@@ -55,17 +57,56 @@ export function isAuthConfigured(env: Env): boolean {
   return !!(env.DASHBOARD_TOKEN && env.DASHBOARD_TOKEN.length >= 16);
 }
 
-async function signSession(exp: number, env: Env): Promise<string> {
-  return hmac(env.DASHBOARD_TOKEN!, `evlog-session:${exp}`);
+function encodeUser(u: string): string {
+  return toBase64Url(encoder.encode(u).buffer as ArrayBuffer);
 }
 
-async function hasValidSessionCookie(request: Request, env: Env): Promise<boolean> {
+function decodeUser(b64: string): string | null {
+  try {
+    const bin = atob(b64.replace(/-/g, "+").replace(/_/g, "/"));
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch {
+    return null;
+  }
+}
+
+async function signSession(exp: number, env: Env, user?: { username: string; ver: string }): Promise<string> {
+  const msg = user ? `evlog-session:${exp}:${user.username}:${user.ver}` : `evlog-session:${exp}`;
+  return hmac(env.DASHBOARD_TOKEN!, msg);
+}
+
+type Session = { kind: "token" } | { kind: "user"; username: string; ver: string };
+
+/** ตรวจลายเซ็นและวันหมดอายุของ cookie (ยังไม่เช็กว่าบัญชียังอยู่ ดู resolveSession) */
+async function readSessionCookie(request: Request, env: Env): Promise<Session | null> {
   const raw = getCookie(request, COOKIE_NAME);
-  if (!raw) return false;
-  const [expStr, sig] = raw.split(".");
-  const exp = parseInt(expStr, 10);
-  if (!exp || !sig || exp < Math.floor(Date.now() / 1000)) return false;
-  return safeEqual(sig, await signSession(exp, env));
+  if (!raw) return null;
+  const parts = raw.split(".");
+  const exp = parseInt(parts[0], 10);
+  if (!exp || exp < Math.floor(Date.now() / 1000)) return null;
+  if (parts.length === 2) {
+    return (await safeEqual(parts[1], await signSession(exp, env))) ? { kind: "token" } : null;
+  }
+  if (parts.length === 4) {
+    const username = decodeUser(parts[1]);
+    const ver = parts[2];
+    if (!username || !ver) return null;
+    return (await safeEqual(parts[3], await signSession(exp, env, { username, ver }))) ? { kind: "user", username, ver } : null;
+  }
+  return null;
+}
+
+/** session ที่ยังใช้ได้จริง: บัญชีต้องยังอยู่ในแท็บ Admins และรุ่นรหัสผ่านตรงกัน */
+async function resolveSession(request: Request, env: Env): Promise<Session | null> {
+  const session = await readSessionCookie(request, env);
+  if (!session || session.kind === "token") return session;
+  try {
+    const admin = (await readAdmins(env)).find((a) => a.username === session.username);
+    return admin && passwordVersion(admin) === session.ver ? session : null;
+  } catch (e) {
+    console.error("resolveSession: cannot read Admins:", e);
+    return null;
+  }
 }
 
 export async function checkToken(candidate: string, env: Env): Promise<boolean> {
@@ -85,15 +126,25 @@ export async function isAuthorized(request: Request, env: Env): Promise<boolean>
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   if (m) return checkToken(m[1].trim(), env);
 
-  if (!(await hasValidSessionCookie(request, env))) return false;
   const origin = request.headers.get("Origin");
   if (origin && origin !== new URL(request.url).origin) return false;
-  return true;
+  return (await resolveSession(request, env)) !== null;
 }
 
-export async function buildSessionCookie(env: Env): Promise<string> {
+/** ผู้ที่ login อยู่: ชื่อบัญชี, "token" (login ด้วย DASHBOARD_TOKEN) หรือ null */
+export async function currentUser(request: Request, env: Env): Promise<string | null> {
+  if (!isAuthConfigured(env)) return null;
+  const m = (request.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
+  if (m) return (await checkToken(m[1].trim(), env)) ? "token" : null;
+  const session = await resolveSession(request, env);
+  return session ? (session.kind === "user" ? session.username : "token") : null;
+}
+
+export async function buildSessionCookie(env: Env, admin?: AdminRecord): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SEC;
-  const value = `${exp}.${await signSession(exp, env)}`;
+  const value = admin
+    ? `${exp}.${encodeUser(admin.username)}.${passwordVersion(admin)}.${await signSession(exp, env, { username: admin.username, ver: passwordVersion(admin) })}`
+    : `${exp}.${await signSession(exp, env)}`;
   return `${COOKIE_NAME}=${value}; Path=/; Max-Age=${SESSION_TTL_SEC}; HttpOnly; Secure; SameSite=Strict`;
 }
 
@@ -125,9 +176,10 @@ export function renderLoginHtml(next: string, error?: string): string {
     h2 { margin: 0 0 6px; color: #38bdf8; font-size: 20px; }
     p { margin: 0 0 18px; color: #94a3b8; font-size: 13px; }
     label { display: block; font-size: 13px; margin-bottom: 6px; color: #cbd5e1; }
-    input[type=password] { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 15px; }
+    input[type=password], input[type=text] { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #f8fafc; font-size: 15px; }
     button { margin-top: 16px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #0284c7; color: #fff; font-weight: bold; font-size: 15px; cursor: pointer; }
     .err { background: #7f1d1d; color: #fecaca; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+    .hint { font-size: 12px; color: #94a3b8; margin: 6px 0 14px; }
   </style>
 </head>
 <body>
@@ -135,8 +187,11 @@ export function renderLoginHtml(next: string, error?: string): string {
     <h2>⚡ EV Log</h2>
     <p>ต้องเข้าสู่ระบบก่อนเพิ่ม แก้ไข หรือลบข้อมูล</p>
     ${error ? `<div class="err">${escapeHtml(error)}</div>` : ""}
-    <label for="token">Dashboard token</label>
-    <input id="token" name="token" type="password" autocomplete="current-password" required autofocus>
+    <label for="username">ชื่อผู้ใช้</label>
+    <input id="username" name="username" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" autofocus>
+    <div class="hint">เว้นว่างถ้าจะเข้าด้วย Dashboard token (ใช้ตั้งบัญชีครั้งแรกหรือกู้คืนเมื่อลืมรหัส)</div>
+    <label for="token">รหัสผ่าน</label>
+    <input id="token" name="token" type="password" autocomplete="current-password" required>
     <input type="hidden" name="next" value="${escapeHtml(next)}">
     <button type="submit">เข้าสู่ระบบ</button>
   </form>
