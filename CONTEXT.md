@@ -3,7 +3,8 @@
 > **เอกสารบริบททางเทคนิค (Context Document) สำหรับ AI Agent และนักพัฒนาเพื่อใช้ทำงานต่อในระบบได้ทันที**  
 > *วันที่อัปเดตล่าสุด:* 24 กันยายน 2026  
 > *ยานพาหนะหลักในระบบ:* XPENG G6 Standard Range (LFP Battery 68.5 kWh)  
-> *สเปกการคำนวณพื้นฐาน:* ค่าไฟ 4.90 ฿/หน่วย, ประสิทธิภาพชาร์จบ้าน 90% (Loss 10%), น้ำมันเทียบเคียง 14 กม./ลิตร (38 ฿/ลิตร)
+> *สเปกการคำนวณพื้นฐาน:* ค่าไฟ 4.90 ฿/หน่วย, ประสิทธิภาพชาร์จบ้าน 90% (Loss 10%), น้ำมันเทียบเคียง: รายงาน LINE (`reports.ts`) ใช้ 14 กม./ลิตร × 38 ฿ ส่วน Dashboard ใช้ค่าเริ่มต้น 16 กม./ลิตร × 38.5 ฿ (ปรับได้ในหน้าตั้งค่า)
+> *สถานะโครงการ:* **พัฒนาครบทั้ง 4 แผนใน ROADMAP แล้ว** (24 ก.ย. 2026) · Production version `ad6d703f` · เหลือเฉพาะรายการที่รอข้อมูลสะสมหรือรอมิเตอร์ TOU (ดูหัวข้อ 7)
 
 ---
 
@@ -14,7 +15,7 @@
 ### ฟีเจอร์หลัก (Core Features):
 1. **AI Vision OCR (Gemini Vision)**: ผู้ใช้เพียงถ่ายรูปหน้าปัดเรือนไมล์ หรือแคปหน้าจอบิล/สลิปการชาร์จจากแอปใดก็ได้ (PEA Volta, PTT EV Station Pluz, EA Anywhere ฯลฯ) ส่งเข้า LINE Bot ระบบจะอ่านค่า Odometer, ระยะทาง, SOC %, kWh, ยอดเงินสุทธิ และชื่อสถานีโดยอัตโนมัติ
 2. **Cloud Storage Backup (Google Drive)**: รูปภาพสลิปและหน้าปัดรถจะถูกอัปโหลดสำรองลง Google Drive โฟลเดอร์ที่กำหนดโดยอัตโนมัติ พร้อมสร้าง URL ลิงก์ตรง
-3. **Dual Data Persistence (Google Sheets)**: บันทึกข้อมูลลง Google Sheets แบบแยกโครงสร้างข้อมูลมาตรฐาน A:M รองรับทั้งการเรียกดูและแก้ไขย้อนหลัง
+3. **Dual Data Persistence (Google Sheets)**: บันทึกข้อมูลลง Google Sheets โครงสร้างมาตรฐาน A:P (A:M ข้อมูลทริป/ชาร์จ + N:P รถ/ผู้ขับ/ประเภท) และแท็บ `Vehicles` เก็บโปรไฟล์รถ รองรับทั้งการเรียกดูและแก้ไขย้อนหลัง
 4. **Interactive LINE Flex Messages**: ตอบกลับผลลัพธ์เป็นการ์ด Flex Message ดีไซน์ Modern Clean พร้อม Hero Metrics, Badge แยกประเภท (`AC ชาร์จบ้าน` vs `DC Fast Charge`), และปุ่มกดด่วน (`📊 เปิดดูแดชบอร์ด`, `📁 ดูรูปใน Google Drive`)
 5. **Scheduled Executive Digests (Cron Triggers)**: ส่งรายงานสรุปสถิติอัตโนมัติเข้า LINE:
    - **Weekly Digest**: ทุกวันอาทิตย์ เวลา 20:00 น. (เวลาไทย)
@@ -24,6 +25,11 @@
    - 6 KPI Card (Wh/km, Odometer, พลังงานรวม, ค่าชาร์จรวม, ต้นทุน ฿/กม., เงินประหยัดเทียบน้ำมัน)
    - 2x2 Data Visualization Hub (แนวโน้ม Wh/km, สัดส่วน AC/DC & Charging Network, กราฟแท่งรายเดือน, กราฟจัดกลุ่มประสิทธิภาพตามระยะทาง)
    - ระบบค้นหา กรองข้อมูล แก้ไข และลบข้อมูล (CRUD) พร้อมหน้ารายงานสรุปเชิงลึก (Reports View)
+7. **Battery Health & Telemetry Pro** (แผนที่ 2, `/vehicle-detail`): ความจุใช้งานจริง, แนวโน้มการเสื่อม, คาดการณ์ระยะทาง 3 สถานการณ์, วิเคราะห์ความเร็วชาร์จ DC · แยกตามรถแต่ละคัน
+8. **TOU What-If Calculator** (แผนที่ 3, `/cost-analysis`): คำนวณว่าเปลี่ยนเป็นมิเตอร์ TOU คุ้มไหม จากเวลาชาร์จบ้านจริง
+9. **Multi-Car Fleet** (แผนที่ 4, `/vehicles`, `/drivers`): รถหลายคัน, ตัวเลือกรถที่แถบบน, เปรียบเทียบผู้ขับ (ชื่อ LINE ของผู้ส่ง = ผู้ขับ)
+10. **Expense Export** (แผนที่ 4, `/reports`): รายงานเบิกจ่ายแยกงาน/ส่วนตัว เป็น Excel (.xlsx) และหน้าพิมพ์ PDF · LINE คำสั่ง "งาน"/"ส่วนตัว"
+11. **Auth**: API ที่แก้ข้อมูลต้องใช้ `DASHBOARD_TOKEN` (login ที่ `/login`)
 
 ---
 
@@ -62,18 +68,19 @@
 ## 3. Project Structure
 
 ```text
-d:\ev\
+D:\EV-LOG\
 │   CONTEXT.md                       # เอกสารสรุปบริบทฉบับนี้
 │   ROADMAP.md                       # แผนกลยุทธ์และ Backlog รายการพัฒนา
 │   README.md                        # คำอธิบายภาพรวมโครงการ
 │   EV_Log_App_Spec.md               # สเปกระบบตั้งต้น
 │   requirements.txt                 # ไลบรารี Python สำหรับ Local CLI
-│   sample_sheet.csv                 # ตัวอย่างโครงสร้างชีต CSV
+│   sample_sheet.csv                 # (ไฟล์เสีย: ข้างในเป็น HTML หน้า "ไม่พบไฟล์" ของ Google ไม่ใช่ CSV)
 │
 ├───cloudflare-worker/               # [PRODUCTION BACKEND] ซอร์สโค้ดหลักที่ Deploy ใช้งานจริง
 │   │   package.json                 # Project manifest & devDependencies
 │   │   tsconfig.json                # TypeScript compiler config
 │   │   wrangler.toml                # Worker configuration, Bindings & Cron Triggers
+│   │   .dev.vars                    # secrets สำหรับรันในเครื่อง (gitignored, ดู .dev.vars.example)
 │   │
 │   └───src/
 │           index.ts                 # Worker Entrypoint, HTTP Router, Scheduled Handler
@@ -252,38 +259,45 @@ export interface PeriodSummary {
 | **Scheduled Reports (Cron)**| ✅ เสร็จสมบูรณ์ | `src/reports.ts`, `src/index.ts` | สรุปรายสัปดาห์ (อาทิตย์ 20:00) และรายเดือน (วันที่ 1) |
 | **Executive Web Dashboard**| ✅ เสร็จสมบูรณ์ | `src/dashboardView.ts` | 6 KPI, 2x2 Data Viz, CRUD Modal, Reports View |
 | **Auth สำหรับ API ที่แก้ข้อมูล** | ✅ เสร็จสมบูรณ์ | `src/auth.ts`, `src/index.ts` | `DASHBOARD_TOKEN` (Bearer / login cookie), ปิด CORS ฝั่งเขียน (24 ก.ย. 2026) |
+| **Battery Health & Telemetry Pro** | ✅ เสร็จ · รอสะสมข้อมูล | `src/battery.ts`, `src/dashboardView.ts` | ความจุจริง, แนวโน้มการเสื่อม, Range Predictor, DC Profiler (แผนที่ 2) |
+| **TOU What-If Calculator** | ✅ เสร็จสมบูรณ์ | `src/tou.ts`, `src/dashboardView.ts` | มิเตอร์ TOU คุ้มไหม (แผนที่ 3 ส่วนที่ไม่ต้องรอมิเตอร์) |
+| **Multi-Car Fleet & Drivers** | ✅ เสร็จสมบูรณ์ | `src/fleet.ts`, `src/dashboardView.ts` | แท็บ Vehicles, ตัวเลือกรถ, เปรียบเทียบผู้ขับ (แผนที่ 4) |
+| **Expense Export (Excel/PDF)** | ✅ เสร็จสมบูรณ์ | `src/expense.ts`, `src/xlsx.ts` | `/api/export.xlsx`, `/report/expense` (แผนที่ 4) |
 
 ### ข้อมูลระบบ Production ปัจจุบัน:
+- **Production Version**: `ad6d703f-82e7-4208-9aa1-e59b03571bed` (deploy 24 ก.ย. 2026 จาก commit `c7c9363`)
 - **Worker URL**: `https://ev-log-bot.eb-book.workers.dev/`
 - **Dashboard URL**: `https://ev-log-bot.eb-book.workers.dev/dashboard`
 - **System Health & Test Tool**: `https://ev-log-bot.eb-book.workers.dev/health` (ปุ่มยิงรายงานต้อง login ก่อน)
 - **Login (สำหรับเพิ่ม/แก้/ลบข้อมูล)**: `https://ev-log-bot.eb-book.workers.dev/login` · ค่า token เก็บในเครื่องที่ `cloudflare-worker/.dev.vars` (gitignored)
+- **หน้าสำคัญ**: `/vehicle-detail` (สุขภาพแบต), `/cost-analysis` (TOU), `/vehicles`, `/drivers`, `/reports` (ส่งออกเบิกจ่าย)
 - **Google Drive Storage**: โฟลเดอร์ `1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e`
 - **Service Account Email**: `ev-sheets-bot@ev-book-508212.iam.gserviceaccount.com`
 
 ---
 
-## 7. Pending Tasks & Next Steps
+## 7. Status by Plan & Next Steps
 
-อ้างอิงตาม [ROADMAP.md](file:///d:/ev/ROADMAP.md) รายการพัฒนาในอนาคตถูกจัดลำดับความสำคัญไว้ดังนี้:
+อ้างอิง [ROADMAP.md](ROADMAP.md) · **พัฒนาครบทั้ง 4 แผนแล้ว** แผนที่ 1 รายละเอียดอยู่ในหัวข้อ 6 ด้านล่างนี้คือแผนที่ 2-4 และสิ่งที่ยังรอเงื่อนไขภายนอก
 
-### 🔋 แผนที่ 2: Predictive Battery Health & Telemetry Pro (ทำแล้ว รอสะสมข้อมูล)
-- [x] **SoH / Usable Capacity**: `battery.ts` → `analyzeBattery(rows, opts)` เป็น pure function ผลลัพธ์แนบอยู่ใน `/api/data` ที่ `data.battery` และมี `GET /api/battery`
+### 🔋 แผนที่ 2: Predictive Battery Health & Telemetry Pro (เสร็จ · รอสะสมข้อมูล)
+- [x] **SoH / Usable Capacity**: `battery.ts` → `analyzeBattery(rows, opts)` เป็น pure function วิเคราะห์แยกตามรถใน `data.batteryByVehicle` (key = Vehicle_ID) ส่วน `data.battery` และ `GET /api/battery` = รถคันหลัก
   - วิธีหลัก: Σ(km × kWh/100km) ÷ Σ SOC ที่ลดลง ของทริปที่มี SOC ครบ
   - ตรวจสอบไขว้จากการชาร์จ: **ต้องตัดแถวที่ kWh = ΔSOC × ความจุ (68.8/68.5 หรือ ÷ efficiency)** เพราะเป็นค่าคำนวณ ไม่ใช่ค่ามิเตอร์
   - ฝั่ง client คำนวณ % เทียบสเปกและ EFC จาก `state.batteryCapacity` เพื่อให้ปรับค่าในหน้าตั้งค่าได้
 - [x] **Degradation Curve**: แยกเป็นช่วงละ ~60% SOC ความชันจะคำนวณเมื่อมี ≥ 4 ช่วงและครอบคลุม ≥ 3,000 km
 - [x] **Dynamic Range Predictor**: ใช้อัตรากินไฟจริงตามช่วงความเร็ว (≥ 60 km) ถ้าข้อมูลไม่พอใช้ค่าเฉลี่ยคูณตัวปรับ
 - [x] **DC Charging Profiler**: ความเร็วเฉลี่ยต่อครั้ง และจุดตัด SOC ที่แนะนำ (ใช้ข้อมูลจริงเมื่อมี SOC จบ ≤85% และ >85% อย่างละ ≥ 2 ครั้ง)
+- ⏳ **รอข้อมูล:** อัตราการเสื่อม (ต้องครอบคลุม ≥ 3,000 km) และจุดตัด DC จากข้อมูลจริง (ต้องบันทึก SOC ต้น/ปลายของการชาร์จ DC)
 
-### ⚡ แผนที่ 3: Smart TOU & Home Wallbox IoT (พักไว้: ที่บ้านยังไม่มีมิเตอร์ TOU)
+### ⚡ แผนที่ 3: Smart TOU & Home Wallbox IoT (ตัวคำนวณ TOU เสร็จ · ที่เหลือรอมิเตอร์ TOU)
 - [x] **TOU What-If Calculator**: `tou.ts` → `analyzeTou(rows)` แนบใน `/api/data` ที่ `data.tou` แสดงผลในหน้า `/cost-analysis`
   - แยก kWh การชาร์จบ้านตามนาทีที่ชาร์จจริง On-Peak = จ.-ศ. 09:00-22:00 (ไม่ได้นับวันหยุดราชการ)
   - ช่วงเวลาชาร์จ: ถ้าโน้ตมี "HH:MM - HH:MM" ใช้ช่วงนั้น, ถ้าเวลาที่บันทึกอยู่ในช่วง 04:00-12:00 ถือเป็นเวลาจบ, นอกนั้นถือเป็นเวลาเริ่ม, ถ้าไม่มีระยะเวลาประมาณจาก kWh ÷ กำลังชาร์จบ้านที่วัดได้
   - การคิดเงินทำฝั่ง client (อัตราและการใช้ไฟของบ้านปรับได้ บันทึกใน localStorage `ev_rate_onpeak`, `ev_rate_offpeak`, `ev_tou_*`)
-- [ ] **TOU Charging Cost Classifier / LINE Reminder 22:00**: รอเปลี่ยนเป็นมิเตอร์ TOU
-- [ ] **Solar Self-Consumption Estimator**
-- [ ] **Smart Meter Webhook Integration**: ไม่ต้องรอมิเตอร์ TOU
+- ⏸️ **TOU Charging Cost Classifier / LINE Reminder 22:00**: รอติดมิเตอร์ TOU ที่บ้าน
+- ⏸️ **Solar Self-Consumption Estimator**: ยังไม่มีโซลาร์เซลล์
+- ⏳ **Smart Meter Webhook Integration**: ทำได้เมื่อมี Smart Plug / Home Assistant (ไม่ต้องรอมิเตอร์ TOU)
 
 ### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (เสร็จแล้ว)
 - [x] **Multi-Vehicle**: `fleet.ts` → แท็บ `Vehicles` (อ่าน `readVehicles`, บันทึก `saveVehicle`), `GET/POST /api/vehicles`
@@ -302,7 +316,7 @@ export interface PeriodSummary {
 ### การติดตั้งและพัฒนาในเครื่อง (Local Development)
 ```bash
 # 1. เข้าสู่โฟลเดอร์ Cloudflare Worker
-cd d:\ev\cloudflare-worker
+cd D:\EV-LOG\cloudflare-worker
 
 # 2. ติดตั้ง Dependencies
 npm install
@@ -315,7 +329,7 @@ npm run dev
 ```
 
 ### การตั้งค่า Secrets & Environment Variables (Cloudflare)
-หากต้องการอัปเดตหรือตั้งค่า Secret ตัวแปรใหม่บน Cloudflare Worker:
+หากต้องการอัปเดตหรือตั้งค่า Secret ตัวแปรใหม่บน Cloudflare Worker (ต้องรันใน terminal แบบ interactive โดยตรง ห้ามครอบด้วย `rtk proxy` ไม่อย่างนั้น wrangler จะขึ้น "cannot be run in a non-interactive context" ทางเลือกคือตั้งที่ Cloudflare Dashboard → Workers & Pages → ev-log-bot → Settings → Variables and Secrets):
 ```bash
 npx wrangler secret put GEMINI_API_KEY
 npx wrangler secret put LINE_CHANNEL_SECRET
@@ -328,9 +342,10 @@ npx wrangler secret put DASHBOARD_TOKEN   # สร้างค่าสุ่ม
 
 ### การ Deploy ขึ้น Production
 ```bash
-cd d:\ev\cloudflare-worker
+cd D:\EV-LOG\cloudflare-worker
 npx wrangler deploy
 ```
+> PowerShell 5.1 ไม่รองรับ `&&` ให้รันทีละคำสั่ง · ก่อน deploy ตรวจ `git status` ว่าไม่มีไฟล์ที่ session อื่นแก้ค้างอยู่ (wrangler bundle จาก working tree ไม่ใช่จาก commit)
 
 ### คำสั่งทดสอบระบบ (Diagnostic & Test Endpoints)
 ```bash
@@ -346,6 +361,12 @@ curl -s -H "Authorization: Bearer $DASHBOARD_TOKEN" "https://ev-log-bot.eb-book.
 # ดึงข้อมูล Raw JSON ของแดชบอร์ด
 curl -s "https://ev-log-bot.eb-book.workers.dev/api/data"
 
-# ดึงผลวิเคราะห์แบตเตอรี่ (SoH, Range, DC Profiler)
+# ดึงผลวิเคราะห์แบตเตอรี่ (SoH, Range, DC Profiler) ของรถคันหลัก
 curl -s "https://ev-log-bot.eb-book.workers.dev/api/battery"
+
+# รายการรถ
+curl -s "https://ev-log-bot.eb-book.workers.dev/api/vehicles"
+
+# ส่งออกรายงานเบิกจ่ายเดือน ก.ย. 2026 เฉพาะงาน เป็น Excel (อ่านอย่างเดียว ไม่ต้องใช้ token)
+curl -s -o expense.xlsx "https://ev-log-bot.eb-book.workers.dev/api/export.xlsx?month=2026-09&purpose=business"
 ```
