@@ -1,7 +1,7 @@
 # 🚗 CONTEXT.md - EV Log Hub System Architecture & Development Context
 
 > **เอกสารบริบททางเทคนิค (Context Document) สำหรับ AI Agent และนักพัฒนาเพื่อใช้ทำงานต่อในระบบได้ทันที**  
-> *วันที่อัปเดตล่าสุด:* 23 กันยายน 2026  
+> *วันที่อัปเดตล่าสุด:* 24 กันยายน 2026  
 > *ยานพาหนะหลักในระบบ:* XPENG G6 Standard Range (LFP Battery 68.5 kWh)  
 > *สเปกการคำนวณพื้นฐาน:* ค่าไฟ 4.90 ฿/หน่วย, ประสิทธิภาพชาร์จบ้าน 90% (Loss 10%), น้ำมันเทียบเคียง 14 กม./ลิตร (38 ฿/ลิตร)
 
@@ -36,6 +36,7 @@
 - **Language**: TypeScript 5.7.3
 - **CLI / Deployment**: Wrangler 3.114+ (`npx wrangler`)
 - **Crypto & Signatures**: Web Crypto API (`crypto.subtle` สำหรับ HMAC-SHA256 และ RSASSA-PKCS1-v1_5)
+- **Auth (API ที่แก้ข้อมูล)**: secret `DASHBOARD_TOKEN` ผ่าน Bearer header หรือ session cookie ที่เซ็นด้วย HMAC-SHA256 (`src/auth.ts`)
 - **Zero Runtime Dependencies**: โค้ดทั้งหมดใช้มาตรฐาน Web Standard Fetch API และ Native Modules ไม่พึ่งพาแพ็กเกจ npm หนักๆ ตอนรัน
 
 ### External APIs & Integrations
@@ -76,6 +77,7 @@ d:\ev\
 │   │
 │   └───src/
 │           index.ts                 # Worker Entrypoint, HTTP Router, Scheduled Handler
+│           auth.ts                  # DASHBOARD_TOKEN: Bearer / session cookie, หน้า /login
 │           types.ts                 # TypeScript Interfaces & Environment Bindings
 │           gemini.ts                # Gemini Vision OCR Integration & Prompt Engineering
 │           calculator.ts            # EV Business Logic & Technical Formulas
@@ -139,6 +141,7 @@ export interface Env {
   GOOGLE_PRIVATE_KEY: string;
   GOOGLE_DRIVE_FOLDER_ID?: string;
   LINE_USER_ID?: string;
+  DASHBOARD_TOKEN?: string; // secret สำหรับ API ที่แก้ข้อมูล (ยาว >= 16 ตัว)
 }
 
 export interface TripRecord {
@@ -225,6 +228,16 @@ export interface PeriodSummary {
 - **LINE Flex Message**: หากโครงสร้าง JSON ของ Flex เกิดข้อผิดพลาด ตัวระบบจะดักจับและส่งข้อความตัวอักษรธรรมดา (Plain Text Fallback) ให้อัตโนมัติทันที
 - **Push vs Broadcast**: ระบบส่งรายงานจะลองส่ง Push หา `LINE_USER_ID` ก่อน หากไม่พบคอนฟิกจะ Broadcast ไปยังผู้ติดตามทุกคนทันที
 
+### 6. Auth & CORS (`src/auth.ts`, ต้นฟังก์ชัน `fetch` ใน `index.ts`)
+- **ต้องยืนยันตัวตน**: `POST/PUT/DELETE /api/records`, `POST /api/vehicles`, `GET /api/cron/trigger` (ตรวจรวมที่ `isWriteEndpoint` ก่อนเข้า router)
+- **ไม่ต้องยืนยันตัวตน (ตั้งใจเปิดไว้)**: หน้า dashboard ทุกหน้า, `/api/data`, `/api/battery`, `GET /api/vehicles`, `/api/export.xlsx`, `/report/expense`, `/health` · LINE webhook (`POST /`, `/callback`) ใช้ LINE signature แทน
+- **2 วิธีเข้าใช้**: `Authorization: Bearer <DASHBOARD_TOKEN>` (สคริปต์/curl) หรือ login ที่ `/login` → cookie `evlog_session` = `<exp>.<HMAC(token, "evlog-session:"+exp)>` อายุ 30 วัน, HttpOnly, Secure, SameSite=Strict · `/logout` ล้าง cookie
+- ถ้ายิงด้วย cookie ต้องไม่มี `Origin` จากเว็บอื่น (กัน CSRF) · `next` หลัง login รับเฉพาะ path ภายใน (`safeNextPath`)
+- ไม่ได้ตั้ง `DASHBOARD_TOKEN` = endpoint ที่แก้ข้อมูลตอบ 503 (fail closed) · เปลี่ยนค่า token = session เดิมใช้ไม่ได้ทั้งหมด
+- **CORS**: endpoint อ่านอย่างเดียวใช้ `corsHeaders` (`*`, GET) · endpoint ที่แก้ข้อมูลใช้ `writeHeaders` (ไม่มี CORS, `no-store`) · preflight อนุญาตแค่ GET
+- **ฝั่ง dashboard**: การเขียนทุกครั้งต้องเรียกผ่าน `apiWrite(url, opts)` ใน `dashboardView.ts` (ถ้าได้ 401 จะพาไป `/login?next=...`) ห้ามใช้ `fetch` ตรงๆ กับ endpoint ที่แก้ข้อมูล
+- endpoint ใหม่ที่แก้ข้อมูลหรือส่ง LINE ต้องเพิ่มเข้า `isWriteEndpoint` และใช้ `writeHeaders`
+
 ---
 
 ## 6. Current Status & Completed Tasks
@@ -238,11 +251,13 @@ export interface PeriodSummary {
 | **Interactive Flex Cards** | ✅ เสร็จสมบูรณ์ | `src/line.ts` | การ์ดตอบกลับการชาร์จ/เดินทาง พร้อมปุ่มลัด |
 | **Scheduled Reports (Cron)**| ✅ เสร็จสมบูรณ์ | `src/reports.ts`, `src/index.ts` | สรุปรายสัปดาห์ (อาทิตย์ 20:00) และรายเดือน (วันที่ 1) |
 | **Executive Web Dashboard**| ✅ เสร็จสมบูรณ์ | `src/dashboardView.ts` | 6 KPI, 2x2 Data Viz, CRUD Modal, Reports View |
+| **Auth สำหรับ API ที่แก้ข้อมูล** | ✅ เสร็จสมบูรณ์ | `src/auth.ts`, `src/index.ts` | `DASHBOARD_TOKEN` (Bearer / login cookie), ปิด CORS ฝั่งเขียน (24 ก.ย. 2026) |
 
 ### ข้อมูลระบบ Production ปัจจุบัน:
 - **Worker URL**: `https://ev-log-bot.eb-book.workers.dev/`
 - **Dashboard URL**: `https://ev-log-bot.eb-book.workers.dev/dashboard`
-- **System Health & Test Tool**: `https://ev-log-bot.eb-book.workers.dev/health`
+- **System Health & Test Tool**: `https://ev-log-bot.eb-book.workers.dev/health` (ปุ่มยิงรายงานต้อง login ก่อน)
+- **Login (สำหรับเพิ่ม/แก้/ลบข้อมูล)**: `https://ev-log-bot.eb-book.workers.dev/login` · ค่า token เก็บในเครื่องที่ `cloudflare-worker/.dev.vars` (gitignored)
 - **Google Drive Storage**: โฟลเดอร์ `1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e`
 - **Service Account Email**: `ev-sheets-bot@ev-book-508212.iam.gserviceaccount.com`
 
@@ -308,6 +323,7 @@ npx wrangler secret put LINE_CHANNEL_ACCESS_TOKEN
 npx wrangler secret put SPREADSHEET_ID
 npx wrangler secret put GOOGLE_CLIENT_EMAIL
 npx wrangler secret put GOOGLE_PRIVATE_KEY
+npx wrangler secret put DASHBOARD_TOKEN   # สร้างค่าสุ่ม เช่น openssl rand -base64 32
 ```
 
 ### การ Deploy ขึ้น Production
@@ -321,11 +337,11 @@ npx wrangler deploy
 # ตรวจสอบสถานะการเชื่อมต่อ Service Account และความพร้อมของระบบ
 curl -s "https://ev-log-bot.eb-book.workers.dev/health"
 
-# ทดสอบสั่งส่งรายงานสรุปประจำสัปดาห์ (Weekly Digest) เข้า LINE ทันที
-curl -s "https://ev-log-bot.eb-book.workers.dev/api/cron/trigger?type=weekly"
+# ทดสอบสั่งส่งรายงานสรุปประจำสัปดาห์ (Weekly Digest) เข้า LINE ทันที (ต้องใช้ token)
+curl -s -H "Authorization: Bearer $DASHBOARD_TOKEN" "https://ev-log-bot.eb-book.workers.dev/api/cron/trigger?type=weekly"
 
-# ทดสอบสั่งส่งรายงานสรุปประจำเดือน (Monthly Digest) เข้า LINE ทันที
-curl -s "https://ev-log-bot.eb-book.workers.dev/api/cron/trigger?type=monthly"
+# ทดสอบสั่งส่งรายงานสรุปประจำเดือน (Monthly Digest) เข้า LINE ทันที (ต้องใช้ token)
+curl -s -H "Authorization: Bearer $DASHBOARD_TOKEN" "https://ev-log-bot.eb-book.workers.dev/api/cron/trigger?type=monthly"
 
 # ดึงข้อมูล Raw JSON ของแดชบอร์ด
 curl -s "https://ev-log-bot.eb-book.workers.dev/api/data"

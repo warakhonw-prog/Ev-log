@@ -11,6 +11,7 @@
 
 ปัจจุบันระบบมีโครงสร้างพื้นฐานที่สมบูรณ์แล้วดังนี้:
 1. **Cloudflare Worker Backend**: รองรับ Webhook รับข้อมูล, Google Sheets Service Account Sync, และ Restful API
+   - 🔒 API ที่แก้ข้อมูลและยิงรายงาน LINE ต้องยืนยันตัวตนด้วย `DASHBOARD_TOKEN` (login ที่ `/login` หรือ Bearer header) ส่วนการอ่านข้อมูลเปิดสาธารณะตามที่ตั้งใจ (24 ก.ย. 2026)
 2. **Executive Web Dashboard**:
    - รถจำลองและ Telemetry แสดง SOC %, ODO, Range คาดการณ์
    - 6 KPI การเงินและประสิทธิภาพ (Wh/km, ODO, kWh รวม, ค่าชาร์จรวม, ฿/km, เงินประหยัดเทียบเบนซิน)
@@ -68,7 +69,7 @@ Smart LINE Bot       Telemetry Pro                   Wallbox IoT         Expense
 3. ✅ **[เสร็จแล้ว] Weekly / Monthly Scheduled Report via LINE**:
    - ตั้งเวลาแจ้งเตือนสรุปประจำสัปดาห์ (ทุกคืนวันอาทิตย์ เวลา 20:00 น. ตามเวลาไทย) และสรุปประจำเดือน (ทุกวันที่ 1 เวลา 20:00 น.) ผ่าน Cloudflare Cron Triggers (`0 13 * * SUN` และ `0 13 1 * *`)
    - ส่งเป็นการ์ด Interactive Flex Message สรุปยอดระยะทาง, พลังงาน kWh, ยอดค่าไฟ, อัตราสิ้นเปลือง Wh/km, เงินที่ประหยัดได้เทียบเบนซิน พร้อมปุ่มกดดูแดชบอร์ด
-   - รองรับการยิงทดสอบแบบ Manual ผ่าน API Endpoint (`/api/cron/trigger?type=weekly` / `type=monthly`) และหน้า `/health`
+   - รองรับการยิงทดสอบแบบ Manual ผ่าน API Endpoint (`/api/cron/trigger?type=weekly` / `type=monthly`) และหน้า `/health` (ต้อง login หรือส่ง Bearer token)
 
 ---
 
@@ -149,6 +150,18 @@ Smart LINE Bot       Telemetry Pro                   Wallbox IoT         Expense
    - Excel: `GET /api/export.xlsx` (3 ชีต: สรุป, การเดินทาง, การชาร์จ) สร้างเองโดยไม่พึ่ง npm
    - PDF: `GET /report/expense` หน้า A4 สำหรับพิมพ์/บันทึกเป็น PDF พร้อมช่องลงชื่อผู้เบิก/ผู้อนุมัติ
    - ระบุงาน/ส่วนตัว: เลือกในฟอร์ม/หน้าแก้ไข หรือพิมพ์ **"งาน"** / **"ส่วนตัว"** ใน LINE หลังส่งรูป (ติดป้ายให้รายการล่าสุดของผู้ส่ง)
+
+---
+
+### 🔒 งานพื้นฐาน: ความปลอดภัย (Security Hardening)
+> โค้ดอยู่ที่ `cloudflare-worker/src/auth.ts` รายละเอียดอยู่ใน CONTEXT.md หัวข้อ 5.6
+
+1. ✅ **[เสร็จแล้ว 24 ก.ย. 2026] Auth สำหรับ API ที่แก้ข้อมูล**:
+   - `POST/PUT/DELETE /api/records`, `POST /api/vehicles`, `GET /api/cron/trigger` ต้องใช้ `DASHBOARD_TOKEN`
+   - หน้า `/login` ออก session cookie (HMAC, 30 วัน) · ปิด CORS ฝั่งเขียน · ไม่มี npm dependency
+2. ⏳ **[ทางเลือก] Rate limit หน้า `/login`**: ตอนนี้พึ่งความยาวของ token (32 ไบต์สุ่ม) ถ้าต้องการเพิ่มใช้ Cloudflare Rate Limiting rule หรือ KV นับครั้ง
+3. ⏳ **[ทางเลือก] ซ่อนข้อมูลใน `/health`**: หน้า health ยังแสดง Service Account email และ Drive folder ID แบบสาธารณะ
+4. ⏸️ **ป้องกันการอ่านข้อมูล**: ตัดสินใจเปิดไว้ (24 ก.ย. 2026) ถ้าเปลี่ยนใจ ให้ใช้ `isAuthorized` กับ route อ่านข้อมูลใน `index.ts`
 
 ---
 
