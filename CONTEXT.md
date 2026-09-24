@@ -307,6 +307,7 @@ export interface PeriodSummary {
 ### 💬 Ask EV Log: ผู้ช่วย AI ถามข้อมูล (เสร็จแล้ว)
 - `askEvAssistant(question, payload, env, {channel, history})`: สรุปข้อมูลชีตด้วย `buildDataContext` (ตารางสรุปรายเดือน, สุขภาพแบตแยกคัน, TOU, รายการล่าสุด ≤ 400 แถวแบบ CSV) ใส่ใน `systemInstruction` แล้วเรียก Gemini พร้อม `tools: [{ google_search: {} }]` แหล่งอ้างอิงมาจาก `groundingMetadata.groundingChunks` (เก็บเฉพาะ http/https)
 - **LINE**: ข้อความที่ไม่ใช่คำสั่ง ("งาน"/"ส่วนตัว") และไม่ใช่คำทักทาย/วิธีใช้ = คำถาม ตอบเฉพาะแชท 1:1 ของ userId ที่อยู่ใน `LINE_ALLOWED_USER_IDS` (คั่นด้วย ,) หรือ `LINE_USER_ID` · ไม่ได้ตั้ง = ปิด (fail closed) และบอท reply รหัส userId ของผู้ถามเพื่อใช้ตั้งค่า · มี loading animation ระหว่างรอ
+- **โมเดล/โควตา**: ผู้ช่วยใช้ `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` (free tier ของ Flash Lite 500 ครั้ง/วัน) **ไม่ใช้ `GEMINI_MODEL`** เพราะ Gemini 3.6 Flash ได้แค่ 20 ครั้ง/วันและต้องเก็บไว้ให้การอ่านสลิป · ถ้าค้นเว็บไม่ได้ (429/400) จะลองใหม่แบบไม่มี `google_search` แล้วตอบจากข้อมูลชีต (`webSearch: false`) · error แสดงครบทุกรุ่นที่ลอง
 - **Dashboard**: หน้า `/ask` แชท (ประวัติเก็บในหน่วยความจำของหน้า ส่ง 8 ข้อความล่าสุดเป็น history) · `POST /api/ask` อยู่ใน auth gate เพราะเรียก AI มีค่าใช้จ่าย
 
 ### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (เสร็จแล้ว)

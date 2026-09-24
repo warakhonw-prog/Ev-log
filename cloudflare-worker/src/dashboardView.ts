@@ -3502,7 +3502,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         body: JSON.stringify({ question: q, history: prior })
       });
       var json = await res.json();
-      if (json.ok) history.push({ role: "model", text: json.answer, sources: json.sources || [] });
+      if (json.ok) history.push({ role: "model", text: json.answer + (json.webSearch === false ? String.fromCharCode(10, 10) + "(ตอนนี้ค้นเว็บไม่ได้เพราะโควตา Gemini ไม่พอ คำตอบนี้มาจากข้อมูลในชีตเท่านั้น)" : ""), sources: json.sources || [] });
       else history.push({ role: "model", text: "ตอบไม่สำเร็จ: " + (json.error || "Unknown"), error: true });
     } catch (err) {
       history.push({ role: "model", text: "เชื่อมต่อไม่สำเร็จ: " + err.message, error: true });

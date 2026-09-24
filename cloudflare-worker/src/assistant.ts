@@ -21,9 +21,19 @@ export interface AskResult {
   answer: string;
   sources: AskSource[];
   model: string;
+  /** false = ค้นเว็บไม่ได้ (โควตา/สิทธิ์) จึงตอบจากข้อมูลในชีตอย่างเดียว */
+  webSearch: boolean;
 }
 
-const CANDIDATE_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+class GeminiError extends Error {
+  constructor(message: string, readonly statuses: number[]) {
+    super(message);
+  }
+}
+
+// ใช้รุ่น Flash Lite (free tier 500 ครั้ง/วัน) และไม่ใช้ GEMINI_MODEL (3.6 Flash ได้แค่ 20 ครั้ง/วัน)
+// เพื่อเก็บโควตารุ่นหลักไว้ให้การอ่านสลิปใน gemini.ts
+const CANDIDATE_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash"];
 // จำนวนแถวล่าสุดที่ส่งให้โมเดล (กันบริบทยาวเกินเมื่อข้อมูลสะสมหลายปี)
 const MAX_ROWS = 400;
 const MAX_HISTORY_TURNS = 8;
@@ -134,11 +144,21 @@ function systemPrompt(context: string, channel: "line" | "web"): string {
   ].join("\n");
 }
 
+function shortError(text: string): string {
+  try {
+    const msg = JSON.parse(text)?.error?.message;
+    if (msg) return String(msg).split(". ")[0].slice(0, 160);
+  } catch {}
+  return text.replace(/\s+/g, " ").slice(0, 160);
+}
+
 async function callGemini(body: any, env: Env): Promise<{ data: any; model: string }> {
   const apiKey = env.GEMINI_API_KEY?.trim();
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
-  const models = Array.from(new Set([env.GEMINI_MODEL, ...CANDIDATE_MODELS].filter((m): m is string => Boolean(m))));
-  let lastError = "";
+  const models = CANDIDATE_MODELS;
+  // เก็บ error ของทุกรุ่นที่ลอง (เดิมเก็บแค่ตัวสุดท้าย ทำให้ไม่รู้ว่ารุ่นหลักล้มเพราะอะไร)
+  const errors: string[] = [];
+  const statuses: number[] = [];
   for (const model of models) {
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
@@ -148,14 +168,19 @@ async function callGemini(body: any, env: Env): Promise<{ data: any; model: stri
         signal: AbortSignal.timeout(25000),
       });
       if (res.ok) return { data: await res.json(), model };
-      lastError = `${model} ${res.status}: ${(await res.text()).slice(0, 300)}`;
+      statuses.push(res.status);
+      errors.push(`${model} ${res.status}: ${shortError(await res.text())}`);
       // 401/403 = API key ผิดหรือไม่มีสิทธิ์ ลองรุ่นอื่นก็ไม่ช่วย (400 อาจเป็นรุ่นที่ไม่รองรับ google_search จึงลองต่อ)
       if (res.status === 401 || res.status === 403) break;
     } catch (e: any) {
-      lastError = `${model}: ${e?.message || e}`;
+      errors.push(`${model}: ${e?.message || e}`);
     }
   }
-  throw new Error(`Gemini ไม่ตอบ: ${lastError}`);
+  const quota = statuses.length > 0 && statuses.every((st) => st === 429);
+  const hint = quota
+    ? "โควตา Gemini API ของ key นี้หมดชั่วคราว (ใช้ key เดียวกับระบบอ่านสลิป) ตรวจที่ https://ai.dev/rate-limit หรือรอโควตารีเซ็ต\n"
+    : "";
+  throw new GeminiError(`${hint}Gemini ไม่ตอบ:\n${errors.join("\n")}`, statuses);
 }
 
 export async function askEvAssistant(
@@ -172,15 +197,24 @@ export async function askEvAssistant(
     .slice(-MAX_HISTORY_TURNS)
     .map((t) => ({ role: t.role, parts: [{ text: t.text.slice(0, 4000) }] }));
 
-  const { data, model } = await callGemini(
-    {
-      systemInstruction: { parts: [{ text: systemPrompt(buildDataContext(payload), opts.channel) }] },
-      contents: [...history, { role: "user", parts: [{ text: q }] }],
-      tools: [{ google_search: {} }],
-      generationConfig: { temperature: 0.3 },
-    },
-    env
-  );
+  const request = {
+    systemInstruction: { parts: [{ text: systemPrompt(buildDataContext(payload), opts.channel) }] },
+    contents: [...history, { role: "user", parts: [{ text: q }] }],
+    generationConfig: { temperature: 0.3 },
+  };
+
+  // ลองแบบค้นเว็บก่อน ถ้าโควตา/สิทธิ์ค้นเว็บไม่พอ (429/400) ให้ตอบจากข้อมูลในชีตอย่างเดียว
+  let webSearch = true;
+  let resp: { data: any; model: string };
+  try {
+    resp = await callGemini({ ...request, tools: [{ google_search: {} }] }, env);
+  } catch (e) {
+    if (!(e instanceof GeminiError) || !e.statuses.some((st) => st === 429 || st === 400)) throw e;
+    console.warn("[Ask] web search unavailable, retrying without google_search:", e.message);
+    webSearch = false;
+    resp = await callGemini(request, env);
+  }
+  const { data, model } = resp;
 
   const cand = data?.candidates?.[0];
   const answer = (cand?.content?.parts || [])
@@ -198,7 +232,7 @@ export async function askEvAssistant(
     sources.push({ title: (chunk.web.title || uri).toString(), uri });
     if (sources.length >= 5) break;
   }
-  return { answer, sources, model };
+  return { answer, sources, model, webSearch };
 }
 
 /** บัญชี LINE ที่อนุญาตให้ถามข้อมูล: LINE_ALLOWED_USER_IDS (คั่นด้วย ,) และ LINE_USER_ID */
@@ -214,6 +248,7 @@ export function isLineUserAllowed(userId: string | undefined, env: Env): boolean
 
 export function formatAnswerForLine(result: AskResult): string {
   let text = result.answer;
+  if (!result.webSearch) text += "\n\n(ตอนนี้ค้นเว็บไม่ได้เพราะโควตา Gemini ไม่พอ คำตอบนี้มาจากข้อมูลในชีตเท่านั้น)";
   if (result.sources.length) {
     text += "\n\nแหล่งข้อมูลจากเว็บ:\n" + result.sources.map((s) => `- ${s.title}\n  ${s.uri}`).join("\n");
   }
