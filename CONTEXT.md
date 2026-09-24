@@ -87,6 +87,9 @@ d:\ev\
 │           dashboardView.ts         # Executive Web Dashboard HTML/SVG Renderer
 │           battery.ts               # Battery Health & Telemetry Pro (SoH, Range Predictor, DC Profiler)
 │           tou.ts                   # TOU What-If: แยก kWh ชาร์จบ้านเป็น On/Off-Peak
+│           fleet.ts                 # Multi-Car: แท็บ Vehicles + คอลัมน์ N:P (รถ/ผู้ขับ/ประเภท)
+│           expense.ts               # รายงานเบิกจ่าย (Excel + หน้าพิมพ์ PDF)
+│           xlsx.ts                  # ตัวสร้างไฟล์ .xlsx แบบไม่พึ่ง npm
 │
 ├───config/                          # [Python Legacy]
 ├───models/                          # [Python Legacy]
@@ -99,8 +102,8 @@ d:\ev\
 
 ## 4. Key Data Models & Schemas
 
-### 1. Google Sheets Column Structure (A ถึง M)
-แถวข้อมูลใน Google Sheets มีทั้งหมด 13 คอลัมน์ (Index 0 ถึง 12):
+### 1. Google Sheets Column Structure (A ถึง P)
+แถวข้อมูลใน Google Sheets มีทั้งหมด 16 คอลัมน์ (Index 0 ถึง 15) — N:P เพิ่มในแผนที่ 4 แถวเก่าที่ว่างใช้ค่าเริ่มต้น:
 | Index | คอลัมน์ | ชนิดข้อมูล | ตัวอย่าง | คำอธิบาย |
 | :---: | :--- | :---: | :--- | :--- |
 | **A** | `Date` | String | `2026-09-22` | วันที่บันทึก (YYYY-MM-DD) |
@@ -116,6 +119,9 @@ d:\ev\
 | **K** | `Cost_Net_THB` | Number | `29.77` | ค่าไฟสุทธิ (บาท) |
 | **L** | `Cost_Grid_THB`| Number | `33.08` | ค่าไฟรวม Loss ตามมิเตอร์ (บาท) |
 | **M** | `Note` | String | `PEA Volta [Drive]` | รายละเอียดสถานี, ประเภทชาร์จ, แท็กรูปภาพ |
+| **N** | `Vehicle` | String | `V1` | Vehicle_ID จากแท็บ `Vehicles` (ว่าง = คันหลัก) |
+| **O** | `Driver` | String | `Max` | ผู้ขับ (จาก LINE = ชื่อ LINE ของผู้ส่ง) |
+| **P** | `Purpose` | String | `business` | `business` / `personal` (ว่าง = personal) |
 
 ### 2. TypeScript Interfaces (`cloudflare-worker/src/types.ts`)
 
@@ -264,9 +270,15 @@ export interface PeriodSummary {
 - [ ] **Solar Self-Consumption Estimator**
 - [ ] **Smart Meter Webhook Integration**: ไม่ต้องรอมิเตอร์ TOU
 
-### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (ระดับความสำคัญ: ถัดไป)
-- [ ] **Multi-Vehicle Profile Switcher**: เพิ่มตัวเลือกสลับโปรไฟล์รถยนต์ที่แถบเมนู (เช่น คันที่ 1: XPENG G6, คันที่ 2: BYD / Tesla) พร้อมแยกชีตหรือแท็ก
-- [ ] **Expense & Tax Export (PDF / Excel)**: พัฒนาระบบส่งออกรายงานค่าใช้จ่ายประจำเดือนเป็นเอกสารมาตรฐานสำหรับเบิกจ่ายภาษีหรือค่าเดินทางบริษัท
+### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (เสร็จแล้ว)
+- [x] **Multi-Vehicle**: `fleet.ts` → แท็บ `Vehicles` (อ่าน `readVehicles`, บันทึก `saveVehicle`), `GET/POST /api/vehicles`
+  - ไม่มีแท็บ Vehicles = ใช้รถสำรองจาก env (`V1`, ความจุ `BATTERY_CAPACITY_KWH`) และสร้างแท็บตอนบันทึกรถครั้งแรก
+  - ฝั่ง client: `state.activeVehicle` (localStorage `ev_active_vehicle`, ค่า `"all"` = รวมทุกคัน), `getRows()` กรองตามคันที่เลือก, `applyActiveVehicle()` ตั้ง `state.batteryCapacity/vehicleName/vehiclePlate` จากโปรไฟล์ทุกครั้งที่ render
+  - **ข้อควรระวัง:** หน้าตั้งค่าแก้ข้อมูลรถ = POST ไปที่โปรไฟล์ในชีต (ไม่ใช่ localStorage อีกต่อไป)
+- [x] **Driver / Purpose**: คอลัมน์ O/P, LINE ใช้ `fetchLineDisplayName` เป็นผู้ขับ, คำสั่งข้อความ "งาน"/"ส่วนตัว" → `setRowPurpose` ของแถวล่าสุดของผู้ส่ง
+  - `POST/PUT /api/records` เขียน N:P เฉพาะเมื่อ body มี `vehicle`/`driver`/`purpose` (client เก่าจะไม่ล้างค่าเดิม)
+- [x] **Expense Export**: `expense.ts` (`buildExpenseReport`, `expenseReportToXlsx`, `renderExpenseReportHtml`), `xlsx.ts` (ZIP store + SpreadsheetML ไม่พึ่ง npm)
+  - `GET /api/export.xlsx` และ `GET /report/expense` รับ query: `month=YYYY-MM`, `vehicle`, `purpose=all|business|personal`, `driver`, `rateKm`
 
 ---
 

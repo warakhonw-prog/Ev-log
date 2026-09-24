@@ -1899,6 +1899,12 @@ table.data-table tr:hover td {
         </a>
       </li>
       <li>
+        <a class="nav-link" data-view="drivers">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          เปรียบเทียบผู้ขับ (Drivers)
+        </a>
+      </li>
+      <li>
         <a class="nav-link" data-view="vehicle-detail">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
           สุขภาพแบตเตอรี่ (Telemetry)
@@ -1966,6 +1972,7 @@ table.data-table tr:hover td {
       </div>
 
       <div class="header-right">
+        <select id="vehicleSwitcher" class="select-input" title="เลือกรถที่จะแสดง" aria-label="เลือกรถ" style="display:none;max-width:180px;"></select>
         <div class="rate-badge">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           <span>อัตราค่าไฟ:</span>
@@ -2048,6 +2055,13 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     petrolKmPerL: parseFloat(localStorage.getItem("ev_petrol_km_l")) || 16.0,
     vehicleName: localStorage.getItem("ev_vehicle_name") || ((window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.vehicle) || "XPENG G6 STD"),
     vehiclePlate: localStorage.getItem("ev_vehicle_plate") || "4ขข 8821 กทม.",
+    activeVehicle: (function() {
+      try { return localStorage.getItem("ev_active_vehicle") || ""; } catch (e) { return ""; }
+    })(),
+    defaultDriver: (function() {
+      try { return localStorage.getItem("ev_default_driver") || ""; } catch (e) { return ""; }
+    })(),
+    driverPeriod: "all",
     filterStation: "all",
     filterSearch: "",
     editRecord: null,
@@ -2177,7 +2191,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function updateSidebarVehicle() {
-    var rows = (state.payload.data && state.payload.data.rows) || [];
+    var rows = getRows();
     var vState = getLatestVehicleState(rows);
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
     var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
@@ -2193,7 +2207,14 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var badgeChargeCount = document.getElementById("badgeChargeCount");
     var badgeTripCount = document.getElementById("badgeTripCount");
 
-    if (sbName) sbName.innerHTML = '<span class="v-status-dot"></span> ' + state.vehicleName;
+    var fleetList = getVehicles();
+    if (sbName) sbName.innerHTML = '<span class="v-status-dot"></span> ' + escHtml(state.activeVehicle === "all" ? "ทุกคัน (" + fleetList.length + " คัน)" : state.vehicleName);
+    var sw = document.getElementById("vehicleSwitcher");
+    if (sw) {
+      sw.innerHTML = '<option value="all"' + (state.activeVehicle === "all" ? " selected" : "") + '>🚘 ทุกคัน</option>' +
+        fleetList.map(function(v) { return '<option value="' + escHtml(v.id) + '"' + (state.activeVehicle === v.id ? " selected" : "") + '>' + escHtml(v.name) + '</option>'; }).join("");
+      sw.style.display = fleetList.length > 1 ? "" : "none";
+    }
     if (sbPlate) sbPlate.innerText = state.vehiclePlate;
     if (sbFill) sbFill.style.width = Math.min(100, Math.max(5, vState.soc)) + "%";
     if (sbText) sbText.innerText = "แบตเตอรี่: " + vState.soc + "% (~" + vState.estRangeKm + " km)";
@@ -2206,7 +2227,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function computeAggregates() {
-    var rows = (state.payload.data && state.payload.data.rows) || [];
+    var rows = getRows();
     var chargeRows = rows.filter(function(r) { return r.kind === "charge"; });
     var tripRows = rows.filter(function(r) { return r.kind === "trip"; });
 
@@ -2260,7 +2281,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function computeMonthlyData() {
-    var rows = (state.payload.data && state.payload.data.rows) || [];
+    var rows = getRows();
     var monthly = {};
     rows.forEach(function(r) {
       if (!r.iso) return;
@@ -2283,6 +2304,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function renderView() {
+    applyActiveVehicle();
     updateSidebarVehicle();
     var container = document.getElementById("viewContainer");
     if (!container) return;
@@ -2297,7 +2319,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     });
 
     var agg = computeAggregates();
-    var rows = (state.payload.data && state.payload.data.rows) || [];
+    var rows = getRows();
 
     var titles = {
       "dashboard": ["แดชบอร์ดภาพรวม", "สรุปข้อมูลการใช้พลังงาน สถิติค่าใช้จ่าย และสถานะตัวรถ"],
@@ -2305,7 +2327,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       "add-charging": ["บันทึกการชาร์จใหม่", "กรอกข้อมูลการชาร์จพร้อมคำนวณพลังงานและค่าไฟอัตโนมัติ"],
       "trips": ["บันทึกการเดินทาง (Trips)", "ติดตามระยะทาง อัตรากินไฟ และประวัติการขับขี่"],
       "add-trip": ["บันทึกการเดินทางใหม่ (New Trip)", "กรอกข้อมูลระยะทาง เลขไมล์ อัตราสิ้นเปลือง และคำนวณพลังงานที่ใช้"],
-      "vehicles": ["โปรไฟล์รถยนต์", "ข้อมูลจำเพาะ ขนาดแบตเตอรี่ และสถานะรถยนต์ไฟฟ้าในระบบ"],
+      "vehicles": ["โปรไฟล์รถยนต์ (Fleet)", "จัดการรถหลายคัน ความจุแบตเตอรี่ และสถิติแยกตามคัน"],
+      "drivers": ["เปรียบเทียบผู้ขับ (Drivers)", "ใครขับประหยัดไฟที่สุด เทียบอัตรากินไฟ ต้นทุน และระยะทางของแต่ละคน"],
       "vehicle-detail": ["สุขภาพแบตเตอรี่ (Battery Health)", "ความจุใช้งานจริง แนวโน้มการเสื่อม ระยะทางตามสไตล์ขับ และความเร็วชาร์จ DC"],
       "cost-analysis": ["วิเคราะห์ค่าใช้จ่ายและประหยัด", "เปรียบเทียบต้นทุนต่อกิโลเมตรกับรถน้ำมันเบนซิน"],
       "reports": ["สรุปรายงานและส่งออก", "ดาวน์โหลดรายงาน สรุปข้อมูลตามช่วงเวลา"],
@@ -2340,6 +2363,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         break;
       case "vehicle-detail":
         html = renderVehicleDetailView(agg);
+        break;
+      case "drivers":
+        html = renderDriversView(rows);
         break;
       case "cost-analysis":
         html = renderCostAnalysisView(agg);
@@ -3125,7 +3151,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var addedSoc = Math.max(0, (r.s1 || 0) - (r.s0 || 0));
         return '<tr>' +
           '<td class="mono" style="color:var(--text-subtle)">#' + r.sheetRowIndex + '</td>' +
-          '<td><strong>' + (r.iso || "-") + '</strong><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">' + (r.time || "-") + '</div></td>' +
+          '<td><strong>' + (r.iso || "-") + '</strong><div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">' + (r.time || "-") + '</div>' + (r.purpose === "business" ? '<div style="margin-top:3px;">' + purposeBadge("business") + '</div>' : '') + '</td>' +
           '<td><span class="badge ' + (isDc ? 'badge-sky' : 'badge-teal') + '" style="display:inline-flex;align-items:center;">' + iconSvg + (r.note || "ชาร์จไฟ") + '</span></td>' +
           '<td class="mono">' + (r.s0 || 0) + '% → <strong>' + (r.s1 || 0) + '%</strong> <span style="font-size:11px;color:var(--emerald);font-weight:600;">(+' + addedSoc + '%)</span></td>' +
           '<td class="mono"><strong>' + fmtNum(r.kwh, 2) + '</strong> kWh</td>' +
@@ -3175,9 +3201,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '<div class="form-group"><label>⏰ เวลาที่ชาร์จ</label><input type="time" class="form-control" name="time" value="' + nowTime + '" required></div>' +
         '</div>' +
         '<div class="form-grid">' +
-          '<div class="form-group"><label>🚗 เลือกรถยนต์</label><select class="form-control" name="vehicle" id="addVehicleSelect"><option value="' + state.vehicleName + '">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</option></select></div>' +
           '<div class="form-group"><label>🔌 สถานที่ / สถานีชาร์จ</label><input type="text" class="form-control" name="note" id="addNote" placeholder="เช่น บ้าน (Home AC), PTT EV Station, EA Anywhere" value="บ้าน (Home AC)" required></div>' +
         '</div>' +
+        fleetFormFields("add", null) +
         '<div style="background:var(--teal-pale);border:1px solid #99F6E4;border-radius:var(--radius-lg);padding:18px;">' +
           '<div style="font-weight:600;color:var(--teal-hover);margin-bottom:12px;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ระดับแบตเตอรี่และการคำนวณอัตโนมัติ (Battery SOC Auto-Calculation)</div>' +
           '<div class="form-grid">' +
@@ -3218,9 +3244,9 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '<div class="form-group"><label>⏰ เวลาออกเดินทาง / บันทึก</label><input type="time" class="form-control" name="time" value="' + nowTime + '" required></div>' +
         '</div>' +
         '<div class="form-grid">' +
-          '<div class="form-group"><label>🚗 เลือกรถยนต์</label><select class="form-control" name="vehicle" id="tripVehicleSelect"><option value="' + state.vehicleName + '">' + state.vehicleName + ' (' + state.batteryCapacity.toFixed(1) + ' kWh)</option></select></div>' +
           '<div class="form-group"><label>🗺️ รายละเอียดเส้นทาง / สภาพการขับขี่</label><input type="text" class="form-control" name="note" id="tripNote" placeholder="เช่น ECO mode, 28°C หรือ เดินทางไปทำงาน" value="การเดินทางทั่วไป" required></div>' +
         '</div>' +
+        fleetFormFields("trip", null) +
         '<div style="background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
           '<div style="font-weight:600;color:var(--text-main);margin-bottom:12px;font-size:14px;display:flex;align-items:center;gap:6px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> 📍 เลขไมล์และระยะทาง (Odometer & Distance)</div>' +
           '<div class="form-grid">' +
@@ -3257,11 +3283,12 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var reversedTrips = tripRows.slice().reverse();
 
     var rowsHtml = reversedTrips.length === 0 ?
-      '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">ยังไม่มีบันทึกการเดินทาง สามารถกดบันทึกรายการเดินทางใหม่ได้ทันที</td></tr>' :
+      '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">ยังไม่มีบันทึกการเดินทาง สามารถกดบันทึกรายการเดินทางใหม่ได้ทันที</td></tr>' :
       reversedTrips.map(function(r) {
         return '<tr>' +
           '<td><strong>' + (r.iso || "-") + '</strong></td>' +
-          '<td>' + (r.note || "การเดินทางทั่วไป") + '</td>' +
+          '<td style="white-space:nowrap;">' + escHtml(driverLabel(r)) + '<div style="margin-top:3px;">' + purposeBadge(r.purpose) + '</div></td>' +
+          '<td>' + escHtml(r.note || "การเดินทางทั่วไป") + '</td>' +
           '<td class="mono">' + (r.odoStart ? fmtNum(r.odoStart, 0) : "-") + '</td>' +
           '<td class="mono">' + (r.odoEnd ? fmtNum(r.odoEnd, 0) : "-") + '</td>' +
           '<td class="mono"><strong>' + fmtNum(r.km, 1) + '</strong> km</td>' +
@@ -3274,36 +3301,426 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     return '<div class="card">' +
       '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg> ประวัติการเดินทางและการขับขี่ (Trip Driving Log)</div><div class="card-subtitle">บันทึกระยะทางและอัตราสิ้นเปลืองในแต่ละเส้นทาง</div></div><button class="btn btn-primary btn-sm" data-nav="add-trip"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> + บันทึกการเดินทางใหม่</button></div>' +
       '<div class="table-wrapper">' +
-        '<table class="data-table"><thead><tr><th>วันที่</th><th>รายละเอียดเส้นทาง / จุดหมาย</th><th>ไมล์เริ่มต้น</th><th>ไมล์สิ้นสุด</th><th>ระยะทาง (km)</th><th>ระยะเวลา (นาที)</th><th>อัตราสิ้นเปลือง</th><th>จัดการ</th></tr></thead>' +
+        '<table class="data-table"><thead><tr><th>วันที่</th><th>ผู้ขับ / ประเภท</th><th>รายละเอียดเส้นทาง / จุดหมาย</th><th>ไมล์เริ่มต้น</th><th>ไมล์สิ้นสุด</th><th>ระยะทาง (km)</th><th>ระยะเวลา (นาที)</th><th>อัตราสิ้นเปลือง</th><th>จัดการ</th></tr></thead>' +
         '<tbody>' + rowsHtml + '</tbody></table>' +
       '</div>' +
     '</div>';
   }
 
-  function renderVehiclesView(agg) {
-    var rows = (state.payload.data && state.payload.data.rows) || [];
-    var vState = getLatestVehicleState(rows);
+  // ---------- Multi-Car Fleet (แผนที่ 4) ----------
+  function getVehicles() {
+    var meta = state.payload.data && state.payload.data.meta;
+    var list = (meta && meta.vehicles) || [];
+    if (list.length === 0) {
+      list = [{ id: "V1", name: "XPENG G6 STD", plate: "", batteryKwh: (meta && meta.batteryCapacity) || 68.5, isDefault: true }];
+    }
+    return list;
+  }
 
-    return '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;">' +
-      '<div class="card" style="border-top:4px solid var(--teal);">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">' +
-          '<div><span class="badge badge-teal" style="margin-bottom:6px;">รถคันปัจจุบันในระบบ</span><h3 style="font-size:18px;font-weight:700;">' + state.vehicleName + '</h3><p style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted);">' + state.vehiclePlate + '</p></div>' +
-          '<div style="width:48px;height:48px;border-radius:var(--radius-md);background:var(--teal-soft);display:flex;align-items:center;justify-content:center;color:var(--teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></div>' +
+  function getDefaultVehicleId() {
+    var meta = state.payload.data && state.payload.data.meta;
+    var list = getVehicles();
+    if (meta && meta.defaultVehicleId) return meta.defaultVehicleId;
+    return (list.find(function(v) { return v.isDefault; }) || list[0]).id;
+  }
+
+  function getVehicleById(id) {
+    return getVehicles().find(function(v) { return v.id === id; }) || null;
+  }
+
+  /** รถที่ใช้คำนวณค่าเฉพาะคัน (ความจุแบต ฯลฯ) — ถ้าเลือก "ทุกคัน" ใช้คันหลัก */
+  function focusVehicleId() {
+    return state.activeVehicle === "all" ? getDefaultVehicleId() : state.activeVehicle;
+  }
+
+  function applyActiveVehicle() {
+    if (state.activeVehicle !== "all" && !getVehicleById(state.activeVehicle)) {
+      state.activeVehicle = getDefaultVehicleId();
+    }
+    var v = getVehicleById(focusVehicleId()) || getVehicles()[0];
+    state.vehicleName = v.name;
+    state.vehiclePlate = v.plate || "-";
+    state.batteryCapacity = Number(v.batteryKwh) || 68.5;
+  }
+
+  function setActiveVehicle(id) {
+    state.activeVehicle = id;
+    try { localStorage.setItem("ev_active_vehicle", id); } catch (e) {}
+    renderView();
+  }
+
+  function rowVehicle(r) {
+    return r.vehicle || getDefaultVehicleId();
+  }
+
+  function getAllRows() {
+    return (state.payload.data && state.payload.data.rows) || [];
+  }
+
+  function getRows() {
+    var rows = getAllRows();
+    if (state.activeVehicle === "all") return rows;
+    return rows.filter(function(r) { return rowVehicle(r) === state.activeVehicle; });
+  }
+
+  function driverLabel(r) {
+    return r.driver || state.defaultDriver || "ไม่ระบุ";
+  }
+
+  function knownDrivers() {
+    var set = {};
+    getAllRows().forEach(function(r) { if (r.driver) set[r.driver] = true; });
+    if (state.defaultDriver) set[state.defaultDriver] = true;
+    return Object.keys(set).sort();
+  }
+
+  function purposeBadge(p) {
+    return p === "business"
+      ? '<span class="badge" style="background:var(--indigo-soft);color:var(--indigo);">งาน</span>'
+      : '<span class="badge" style="background:var(--surface-subtle);color:var(--text-muted);">ส่วนตัว</span>';
+  }
+
+  function vehicleOptions(selectedId) {
+    return getVehicles().map(function(v) {
+      return '<option value="' + escHtml(v.id) + '"' + (v.id === selectedId ? " selected" : "") + '>' +
+        escHtml(v.name) + (v.plate ? " · " + escHtml(v.plate) : "") + ' (' + Number(v.batteryKwh).toFixed(1) + ' kWh)</option>';
+    }).join("");
+  }
+
+  /** ช่อง รถ / ผู้ขับ / ประเภทการเดินทาง ใช้ร่วมกันในฟอร์มเพิ่มและแก้ไข */
+  function fleetFormFields(prefix, rec) {
+    var vid = rec ? rowVehicle(rec) : focusVehicleId();
+    var drv = rec ? (rec.driver || "") : (state.defaultDriver || "");
+    var pur = rec ? (rec.purpose || "personal") : "personal";
+    var dl = knownDrivers().map(function(d) { return '<option value="' + escHtml(d) + '">'; }).join("");
+    return '<div class="form-grid">' +
+      '<div class="form-group"><label>🚗 รถยนต์</label><select class="form-control" name="vehicle" id="' + prefix + 'VehicleSelect">' + vehicleOptions(vid) + '</select></div>' +
+      '<div class="form-group"><label>👤 ผู้ขับ</label><input type="text" class="form-control" name="driver" list="' + prefix + 'DriverList" value="' + escHtml(drv) + '" placeholder="ชื่อผู้ขับ"><datalist id="' + prefix + 'DriverList">' + dl + '</datalist></div>' +
+    '</div>' +
+    '<div class="form-group"><label>🏷️ ประเภทการเดินทาง</label><select class="form-control" name="purpose">' +
+      '<option value="personal"' + (pur !== "business" ? " selected" : "") + '>ส่วนตัว (Personal)</option>' +
+      '<option value="business"' + (pur === "business" ? " selected" : "") + '>งาน (Business) · ใช้ออกรายงานเบิกจ่าย</option>' +
+    '</select></div>';
+  }
+
+  function capForSelect(id) {
+    var el = document.getElementById(id);
+    var v = el ? getVehicleById(el.value) : null;
+    return v ? Number(v.batteryKwh) : state.batteryCapacity;
+  }
+
+  async function refreshPayload() {
+    var dRes = await fetch("/api/data");
+    var dJson = await dRes.json();
+    if (dJson.ok) state.payload = dJson;
+  }
+
+  async function saveVehicleProfile(body) {
+    var res = await fetch("/api/vehicles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    var json = await res.json();
+    if (!json.ok) throw new Error(json.error || "Unknown");
+    await refreshPayload();
+    return json;
+  }
+
+  function vehicleStats(vid) {
+    var rows = getAllRows().filter(function(r) { return rowVehicle(r) === vid; });
+    var s = { rows: rows.length, trips: 0, km: 0, consKm: 0, energy: 0, charges: 0, kwh: 0, cost: 0, lastSoc: null, lastOdo: 0 };
+    rows.forEach(function(r) {
+      if (r.kind === "trip" && r.km > 0 && r.km < 600) {
+        s.trips++;
+        s.km += r.km;
+        if (r.cons > 0) { s.consKm += r.km; s.energy += r.km * (r.cons > 50 ? r.cons / 1000 : r.cons / 100); }
+      }
+      if (r.kind === "charge") { s.charges++; s.kwh += r.kwh || 0; s.cost += r.net || 0; }
+      if (r.s1 > 0 && r.s1 <= 100) s.lastSoc = r.s1;
+      if (r.odoEnd > s.lastOdo && r.odoEnd < 1000000) s.lastOdo = r.odoEnd;
+    });
+    s.whKm = s.consKm > 0 ? s.energy / s.consKm * 1000 : null;
+    return s;
+  }
+
+  function renderVehiclesView(agg) {
+    var vehicles = getVehicles();
+    var defId = getDefaultVehicleId();
+    var cards = vehicles.map(function(v) {
+      var st = vehicleStats(v.id);
+      var isActive = state.activeVehicle === v.id;
+      var stat = function(label, val) {
+        return '<div><div style="font-size:11.5px;color:var(--text-muted)">' + label + '</div><strong style="font-family:var(--font-mono);font-size:15px;">' + val + '</strong></div>';
+      };
+      return '<div class="card" style="border-top:4px solid ' + (isActive ? 'var(--primary)' : 'var(--border-strong)') + ';display:flex;flex-direction:column;gap:12px;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+          '<div style="min-width:0;">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' +
+              (v.id === defId ? '<span class="badge badge-teal">คันหลัก</span>' : '') +
+              (isActive ? '<span class="badge badge-emerald">กำลังแสดง</span>' : '') +
+              '<span class="badge" style="background:var(--surface-subtle);color:var(--text-muted);font-family:var(--font-mono);">' + escHtml(v.id) + '</span>' +
+            '</div>' +
+            '<h3 style="font-size:17px;font-weight:700;overflow-wrap:anywhere;">' + escHtml(v.name) + '</h3>' +
+            '<p style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted);">' + (v.plate ? escHtml(v.plate) : 'ยังไม่ระบุทะเบียน') + '</p>' +
+          '</div>' +
+          '<div style="flex-shrink:0;width:44px;height:44px;border-radius:var(--radius-md);background:var(--teal-soft);display:flex;align-items:center;justify-content:center;color:var(--teal)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></div>' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;background:var(--surface-subtle);padding:14px;border-radius:var(--radius-md);">' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">ระดับแบตเตอรี่คงเหลือ</div><strong style="font-family:var(--font-mono);font-size:16px;color:var(--teal);">' + vState.soc + '% (' + vState.remainingKwh.toFixed(1) + ' kWh)</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">ระยะทางวิ่งได้ (WLTP)</div><strong style="font-family:var(--font-mono);font-size:16px;color:var(--emerald);">' + vState.estRangeKm + ' km</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">ความจุแบตเตอรี่</div><strong style="font-family:var(--font-mono);font-size:16px;">' + state.batteryCapacity.toFixed(1) + ' kWh</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">เลขไมล์ล่าสุด (Odometer)</div><strong style="font-family:var(--font-mono);font-size:16px;">' + fmtNum(vState.odo || agg.latestOdo, 0) + ' km</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">ระยะทางวิ่งสะสม</div><strong style="font-family:var(--font-mono);font-size:16px;">' + fmtNum(agg.totalDistanceKm, 0) + ' km</strong></div>' +
-          '<div><div style="font-size:11.5px;color:var(--text-muted)">รอบการชาร์จสะสม</div><strong style="font-family:var(--font-mono);font-size:16px;">~' + agg.chargeCycles.toFixed(1) + ' Cycles</strong></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:var(--surface-subtle);padding:12px;border-radius:var(--radius-md);">' +
+          stat("ความจุแบตเตอรี่", Number(v.batteryKwh).toFixed(1) + ' kWh') +
+          stat("% แบตล่าสุด", st.lastSoc !== null ? st.lastSoc + '%' : '-') +
+          stat("ระยะทางสะสม", fmtNum(st.km, 0) + ' km') +
+          stat("อัตรากินไฟเฉลี่ย", st.whKm !== null ? st.whKm.toFixed(0) + ' Wh/km' : '-') +
+          stat("ชาร์จ " + st.charges + " ครั้ง", fmtNum(st.kwh, 0) + ' kWh') +
+          stat("ค่าชาร์จรวม", fmtNum(st.cost, 0) + ' ฿') +
         '</div>' +
-        '<div style="display:flex;gap:10px;margin-top:16px;">' +
-          '<button class="btn btn-secondary btn-sm" style="flex:1;" data-nav="settings">แก้ไขสเปกรถ</button>' +
-          '<button class="btn btn-primary btn-sm" style="flex:1;" data-nav="vehicle-detail">ดูสุขภาพแบตเตอรี่</button>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          (isActive ? '' : '<button type="button" class="btn btn-primary btn-sm" style="flex:1;" data-vehicle-use="' + escHtml(v.id) + '">แสดงข้อมูลคันนี้</button>') +
+          '<button type="button" class="btn btn-secondary btn-sm" style="flex:1;" data-vehicle-edit="' + escHtml(v.id) + '">แก้ไข</button>' +
+          (v.id === defId ? '' : '<button type="button" class="btn btn-secondary btn-sm" style="flex:1;" data-vehicle-default="' + escHtml(v.id) + '">ตั้งเป็นคันหลัก</button>') +
         '</div>' +
+      '</div>';
+    }).join("");
+
+    var addCard = '<button type="button" class="card" data-vehicle-edit="" style="border:2px dashed var(--border-strong);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:220px;cursor:pointer;color:var(--text-muted);font:inherit;background:var(--surface);">' +
+      '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>' +
+      '<strong style="font-size:14px;color:var(--text-main);">เพิ่มรถคันใหม่</strong>' +
+      '<span style="font-size:12px;">บันทึกลงแท็บ Vehicles ใน Google Sheets</span>' +
+    '</button>';
+
+    var allBtn = vehicles.length > 1
+      ? '<div style="display:flex;justify-content:flex-end;"><button type="button" class="btn ' + (state.activeVehicle === "all" ? 'btn-primary' : 'btn-secondary') + ' btn-sm" data-vehicle-use="all">แสดงข้อมูลรวมทุกคัน</button></div>'
+      : '';
+
+    return '<div style="display:flex;flex-direction:column;gap:16px;">' + allBtn +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:20px;">' + cards + addCard + '</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">รายการเก่าที่ยังไม่ระบุรถ นับเป็นของคันหลัก · รายการที่ส่งผ่าน LINE จะบันทึกเป็นคันหลักเสมอ แก้เป็นคันอื่นได้ในหน้าประวัติ</div>' +
+    '</div>';
+  }
+
+  function openVehicleModal(id) {
+    var v = id ? getVehicleById(id) : null;
+    var presets = [["XPENG G6 Standard", 68.5], ["XPENG G6 Long Range", 87.5], ["BYD Atto 3 Extended", 60.48], ["BYD Seal Premium", 82.5], ["Tesla Model Y RWD", 60.0], ["Tesla Model 3 LR", 75.0], ["MG4 Electric", 51.0]];
+    var modal = document.getElementById("modalContainer");
+    modal.innerHTML = '<div class="modal-backdrop">' +
+      '<div class="modal-content" style="max-width:520px;">' +
+        '<div class="modal-header"><div class="modal-title">' + (v ? '✏️ แก้ไขรถ ' + escHtml(v.name) : '🚗 เพิ่มรถคันใหม่') + '</div><button class="btn btn-secondary btn-sm" id="btnCloseVehicleModal">✕</button></div>' +
+        '<form id="formVehicle">' +
+          '<div class="modal-body">' +
+            '<div class="form-group"><label>ชื่อรุ่นรถ</label><input type="text" class="form-control" id="cfgVehicleName" value="' + (v ? escHtml(v.name) : '') + '" required placeholder="เช่น BYD Atto 3"></div>' +
+            '<div class="form-grid">' +
+              '<div class="form-group"><label>เลขทะเบียน</label><input type="text" class="form-control" id="cfgVehiclePlate" value="' + (v ? escHtml(v.plate) : '') + '" placeholder="เช่น 1กข 1234 กทม."></div>' +
+              '<div class="form-group"><label>ความจุแบตเตอรี่ (kWh)</label><input type="number" step="0.1" min="5" max="250" class="form-control mono" id="cfgBatteryCapacity" value="' + (v ? v.batteryKwh : '') + '" required></div>' +
+            '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 12px;">' +
+              presets.map(function(p) { return '<button type="button" class="btn btn-secondary btn-sm" data-preset="' + p[0] + '" data-cap="' + p[1] + '">' + p[0] + ' (' + p[1] + ')</button>'; }).join("") +
+            '</div>' +
+            '<label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" id="cfgVehicleDefault"' + (v && v.isDefault ? ' checked disabled' : '') + '> ตั้งเป็นคันหลัก (รายการจาก LINE จะบันทึกเป็นคันนี้)</label>' +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button type="button" class="btn btn-secondary" id="btnCancelVehicle">ยกเลิก</button>' +
+            '<button type="submit" class="btn btn-primary" id="btnSubmitVehicle">บันทึกรถ</button>' +
+          '</div>' +
+        '</form>' +
       '</div>' +
     '</div>';
+
+    var close = function() { modal.innerHTML = ""; };
+    document.getElementById("btnCloseVehicleModal").onclick = close;
+    document.getElementById("btnCancelVehicle").onclick = close;
+    document.getElementById("formVehicle").onsubmit = async function(e) {
+      e.preventDefault();
+      var btn = document.getElementById("btnSubmitVehicle");
+      btn.disabled = true; btn.innerText = "กำลังบันทึก...";
+      try {
+        await saveVehicleProfile({
+          id: v ? v.id : "",
+          name: document.getElementById("cfgVehicleName").value.trim(),
+          plate: document.getElementById("cfgVehiclePlate").value.trim(),
+          batteryKwh: parseFloat(document.getElementById("cfgBatteryCapacity").value),
+          isDefault: document.getElementById("cfgVehicleDefault").checked
+        });
+        showToast(v ? "แก้ไขข้อมูลรถเรียบร้อยแล้ว" : "เพิ่มรถคันใหม่เรียบร้อยแล้ว", "success");
+        close();
+        renderView();
+      } catch (err) {
+        showToast("บันทึกรถไม่สำเร็จ: " + err.message, "error");
+        btn.disabled = false; btn.innerText = "บันทึกรถ";
+      }
+    };
+  }
+
+  function renderDriversView(rows) {
+    var nowMonth = new Date(Date.now() + 7 * 3600 * 1000).toISOString().substring(0, 7);
+    var trips = rows.filter(function(r) {
+      return r.kind === "trip" && r.km > 0 && r.km < 600 && (state.driverPeriod !== "month" || (r.iso || "").substring(0, 7) === nowMonth);
+    });
+    var groups = {};
+    trips.forEach(function(r) {
+      var d = driverLabel(r);
+      var g = groups[d] || (groups[d] = { name: d, trips: 0, km: 0, consKm: 0, energy: 0, cost: 0, min: 0, minKm: 0, bizKm: 0 });
+      g.trips++;
+      g.km += r.km;
+      g.cost += r.net || 0;
+      if (r.cons > 0) { g.consKm += r.km; g.energy += r.km * (r.cons > 50 ? r.cons / 1000 : r.cons / 100); }
+      if (r.min > 0) { g.min += r.min; g.minKm += r.km; }
+      if (r.purpose === "business") g.bizKm += r.km;
+    });
+    var list = Object.keys(groups).map(function(k) {
+      var g = groups[k];
+      g.whKm = g.consKm > 0 ? g.energy / g.consKm * 1000 : null;
+      g.costKm = g.km > 0 ? g.cost / g.km : 0;
+      g.kmh = g.min > 0 ? g.minKm / (g.min / 60) : null;
+      // ต้องมีทริปที่มีอัตรากินไฟรวม ≥ 20 km จึงจัดอันดับ กันค่าจากทริปสั้นๆ ไม่กี่ทริป
+      g.ranked = g.whKm !== null && g.consKm >= 20;
+      return g;
+    });
+    var ranked = list.filter(function(g) { return g.ranked; }).sort(function(a, b) { return a.whKm - b.whKm; });
+    var best = ranked.length ? ranked[0].whKm : null;
+    ranked.forEach(function(g, i) { g.rank = i + 1; g.score = Math.round(best / g.whKm * 100); });
+    var unranked = list.filter(function(g) { return !g.ranked; }).sort(function(a, b) { return b.km - a.km; });
+    var longest = list.slice().sort(function(a, b) { return b.km - a.km; })[0];
+    var medals = ["🥇", "🥈", "🥉"];
+
+    var toggle = '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" class="btn btn-sm ' + (state.driverPeriod !== "month" ? 'btn-primary' : 'btn-secondary') + '" data-driver-period="all">ทั้งหมด</button>' +
+      '<button type="button" class="btn btn-sm ' + (state.driverPeriod === "month" ? 'btn-primary' : 'btn-secondary') + '" data-driver-period="month">เดือนนี้ (' + formatThaiMonth(nowMonth) + ')</button>' +
+    '</div>';
+
+    var card = function(g) {
+      var badges = "";
+      if (g.rank === 1 && ranked.length > 1) badges += '<span class="badge badge-emerald">🏆 ประหยัดที่สุด</span>';
+      if (longest && g.name === longest.name && list.length > 1) badges += '<span class="badge badge-sky">🛣️ ขับไกลที่สุด</span>';
+      var stat = function(label, val) {
+        return '<div><div style="font-size:11px;color:var(--text-muted)">' + label + '</div><strong style="font-family:var(--font-mono);font-size:14px;">' + val + '</strong></div>';
+      };
+      return '<div class="card" style="display:flex;flex-direction:column;gap:12px;' + (g.rank === 1 && ranked.length > 1 ? 'border-top:4px solid var(--emerald);' : '') + '">' +
+        '<div style="display:flex;align-items:center;gap:12px;">' +
+          '<div style="font-size:30px;line-height:1;width:40px;text-align:center;">' + (g.ranked ? (medals[g.rank - 1] || ('#' + g.rank)) : '👤') + '</div>' +
+          '<div style="min-width:0;flex:1;">' +
+            '<h3 style="font-size:16px;font-weight:700;overflow-wrap:anywhere;">' + escHtml(g.name) + '</h3>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">' + badges + '</div>' +
+          '</div>' +
+          (g.ranked ? '<div style="text-align:right;"><div style="font-size:11px;color:var(--text-muted);">คะแนนประหยัด</div><strong style="font-family:var(--font-mono);font-size:24px;color:var(--emerald);">' + g.score + '</strong></div>' : '') +
+        '</div>' +
+        (g.ranked ? '<div style="height:8px;background:var(--surface-subtle);border-radius:4px;overflow:hidden;"><div style="width:' + g.score + '%;height:100%;background:linear-gradient(90deg,#34D399,#10B981);"></div></div>' : '<div style="font-size:12px;color:var(--text-muted);">ข้อมูลอัตรากินไฟยังไม่ถึง 20 km จึงยังไม่จัดอันดับ</div>') +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">' +
+          stat("อัตรากินไฟ", g.whKm !== null ? g.whKm.toFixed(0) + ' Wh/km' : '-') +
+          stat("ระยะทาง", fmtNum(g.km, 0) + ' km') +
+          stat("ทริป", g.trips) +
+          stat("ต้นทุน", g.costKm.toFixed(2) + ' ฿/km') +
+          stat("ความเร็วเฉลี่ย", g.kmh !== null ? g.kmh.toFixed(0) + ' km/h' : '-') +
+          stat("เดินทางงาน", fmtNum(g.bizKm, 0) + ' km') +
+        '</div>' +
+      '</div>';
+    };
+
+    var notes = [];
+    if (state.activeVehicle === "all" && getVehicles().length > 1) {
+      notes.push("กำลังรวมข้อมูลทุกคัน รถต่างรุ่นกินไฟต่างกัน เลือกรถที่มุมขวาบนเพื่อเทียบกันอย่างยุติธรรม");
+    }
+    if (list.length <= 1) {
+      notes.push("ตอนนี้มีผู้ขับคนเดียว ถ้าคนอื่นในบ้านส่งรูปเข้า LINE bot ระบบจะบันทึกชื่อ LINE ของคนนั้นเป็นผู้ขับให้อัตโนมัติ หรือแก้ชื่อผู้ขับของแต่ละรายการในหน้าประวัติก็ได้");
+    }
+    if (list.some(function(g) { return g.name === "ไม่ระบุ"; })) {
+      notes.push("รายการที่ไม่มีชื่อผู้ขับแสดงเป็น “ไม่ระบุ” ตั้งชื่อผู้ขับหลักได้ในหน้าตั้งค่า เพื่อนับรายการเหล่านี้เป็นของคนนั้น");
+    }
+
+    var body = list.length === 0
+      ? '<div class="card" style="text-align:center;color:var(--text-muted);padding:40px;">ยังไม่มีทริปในช่วงเวลานี้</div>'
+      : '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:20px;">' + ranked.concat(unranked).map(card).join("") + '</div>';
+
+    return '<div style="display:flex;flex-direction:column;gap:16px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+        '<div style="font-size:12.5px;color:var(--text-muted);">คะแนนประหยัด = อัตรากินไฟของคนที่ดีที่สุด ÷ ของคนนั้น × 100</div>' + toggle +
+      '</div>' +
+      (notes.length ? '<div style="padding:10px 14px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:3px solid var(--primary);font-size:12.5px;line-height:1.7;">' + notes.map(escHtml).join("<br>") + '</div>' : '') +
+      body +
+    '</div>';
+  }
+
+  function generateExportCard() {
+    var rows = getAllRows();
+    var months = {};
+    rows.forEach(function(r) { if (r.iso) months[r.iso.substring(0, 7)] = true; });
+    var monthList = Object.keys(months).sort().reverse();
+    var drivers = knownDrivers();
+    var v = state.activeVehicle === "all" ? null : getVehicleById(state.activeVehicle);
+    var rateKm = "";
+    try { rateKm = localStorage.getItem("ev_export_rate_km") || ""; } catch (e) {}
+
+    return '<div class="card">' +
+      '<div class="card-header"><div><div class="card-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg> ส่งออกเอกสารเบิกจ่าย (Expense Export)</div>' +
+      '<div class="card-subtitle">รายงานค่าใช้จ่ายแยกงาน / ส่วนตัว เป็น Excel (.xlsx) หรือหน้าพิมพ์สำหรับบันทึกเป็น PDF · รถ: ' + (v ? escHtml(v.name) : 'ทุกคัน') + '</div></div></div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;">' +
+        '<div class="form-group" style="margin:0;"><label style="font-size:12px;">เดือน</label><select class="form-control exp-input" id="expMonth">' +
+          monthList.map(function(m, i) { return '<option value="' + m + '"' + (i === 0 ? ' selected' : '') + '>' + formatThaiMonth(m) + '</option>'; }).join("") +
+          '<option value="">ทุกเดือน</option></select></div>' +
+        '<div class="form-group" style="margin:0;"><label style="font-size:12px;">ประเภทการเดินทาง</label><select class="form-control exp-input" id="expPurpose">' +
+          '<option value="business">เฉพาะงาน (Business)</option><option value="all">ทั้งหมด</option><option value="personal">เฉพาะส่วนตัว</option></select></div>' +
+        '<div class="form-group" style="margin:0;"><label style="font-size:12px;">ผู้ขับ</label><select class="form-control exp-input" id="expDriver">' +
+          '<option value="__all__">ทุกคน</option>' + drivers.map(function(d) { return '<option value="' + escHtml(d) + '">' + escHtml(d) + '</option>'; }).join("") + '</select></div>' +
+        '<div class="form-group" style="margin:0;"><label style="font-size:12px;">อัตราเบิกต่อ km (฿)</label><input type="number" step="0.01" min="0" class="form-control mono exp-input" id="expRateKm" value="' + escHtml(rateKm) + '" placeholder="เว้นว่าง = ไม่คำนวณ"></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">' +
+        '<a class="btn btn-primary" id="btnExportXlsx" href="/api/export.xlsx" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> ดาวน์โหลด Excel</a>' +
+        '<a class="btn btn-secondary" id="btnExportPdf" href="/report/expense" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> เปิดรายงาน PDF / พิมพ์</a>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--text-muted);margin-top:10px;line-height:1.6;">ระบุงาน/ส่วนตัวของแต่ละรายการได้ในหน้าประวัติ (ปุ่มแก้ไข) หรือพิมพ์ "งาน" ใน LINE หลังส่งรูป · หน้า PDF กด "พิมพ์ / บันทึกเป็น PDF" แล้วเลือก Save as PDF</div>' +
+    '</div>';
+  }
+
+  function updateExportLinks() {
+    var m = document.getElementById("expMonth");
+    if (!m) return;
+    var params = [];
+    var add = function(k, v) { params.push(k + "=" + encodeURIComponent(v)); };
+    if (m.value) add("month", m.value);
+    add("purpose", document.getElementById("expPurpose").value);
+    var d = document.getElementById("expDriver").value;
+    if (d !== "__all__") add("driver", d);
+    add("vehicle", state.activeVehicle || "all");
+    var rate = parseFloat(document.getElementById("expRateKm").value);
+    if (rate > 0) add("rateKm", rate);
+    var q = "?" + params.join("&");
+    document.getElementById("btnExportXlsx").setAttribute("href", "/api/export.xlsx" + q);
+    document.getElementById("btnExportPdf").setAttribute("href", "/report/expense" + q);
+  }
+
+  function bindFleetEvents() {
+    document.querySelectorAll("[data-vehicle-use]").forEach(function(el) {
+      el.onclick = function() { setActiveVehicle(el.getAttribute("data-vehicle-use")); };
+    });
+    document.querySelectorAll("[data-vehicle-edit]").forEach(function(el) {
+      el.onclick = function() { openVehicleModal(el.getAttribute("data-vehicle-edit")); };
+    });
+    document.querySelectorAll("[data-vehicle-default]").forEach(function(el) {
+      el.onclick = async function() {
+        var v = getVehicleById(el.getAttribute("data-vehicle-default"));
+        if (!v) return;
+        el.disabled = true;
+        try {
+          await saveVehicleProfile({ id: v.id, name: v.name, plate: v.plate, batteryKwh: v.batteryKwh, isDefault: true });
+          showToast("ตั้ง " + v.name + " เป็นคันหลักแล้ว", "success");
+          renderView();
+        } catch (err) {
+          showToast("ตั้งคันหลักไม่สำเร็จ: " + err.message, "error");
+          el.disabled = false;
+        }
+      };
+    });
+    document.querySelectorAll("[data-driver-period]").forEach(function(el) {
+      el.onclick = function() { state.driverPeriod = el.getAttribute("data-driver-period"); renderView(); };
+    });
+    if (document.getElementById("expMonth")) {
+      document.querySelectorAll(".exp-input").forEach(function(el) {
+        el.onchange = el.oninput = function() {
+          if (el.id === "expRateKm") { try { localStorage.setItem("ev_export_rate_km", el.value); } catch (e) {} }
+          updateExportLinks();
+        };
+      });
+      updateExportLinks();
+    }
   }
 
   function escHtml(s) {
@@ -3489,7 +3906,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function renderVehicleDetailView(agg) {
-    var bat = state.payload.data && state.payload.data.battery;
+    var byVehicle = (state.payload.data && state.payload.data.batteryByVehicle) || {};
+    var bat = byVehicle[focusVehicleId()] || (state.payload.data && state.payload.data.battery);
     if (!bat) {
       return batteryEmptyCard("สุขภาพแบตเตอรี่", "ไม่พบข้อมูลวิเคราะห์แบตเตอรี่ กดรีเฟรชข้อมูลอีกครั้ง");
     }
@@ -3553,7 +3971,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       '</div>' +
     '</div>';
 
+    var vehicleNote = getVehicles().length > 1
+      ? '<div style="font-size:12.5px;color:var(--text-muted);">กำลังแสดงแบตของ <strong style="color:var(--text-main);">' + escHtml(state.vehicleName) + '</strong>' + (state.activeVehicle === "all" ? ' (คันหลัก · เลือกรถคันอื่นได้ที่มุมขวาบน)' : '') + '</div>'
+      : '';
     return '<div style="display:flex;flex-direction:column;gap:20px;">' +
+      vehicleNote +
       kpis +
       generateCapacityTrendChart(bat, nominal) +
       generateRangePredictorCard(bat) +
@@ -4494,7 +4916,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '</div>';
     }
 
-    return '<div class="card">' +
+    return '<div style="display:flex;flex-direction:column;gap:20px;">' + generateExportCard() + '<div class="card">' +
       '<div class="card-header"><div>' +
         '<div class="card-title">' +
           '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>' +
@@ -4509,7 +4931,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       topKpisHtml +
       sectionNavHtml +
       reportContentHtml +
-    '</div>';
+    '</div></div>';
   }
 
   function renderManageView(rows) {
@@ -4566,7 +4988,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           '</div>' +
         '</div>' +
         '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
-          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ตั้งค่าความจุแบตเตอรี่และข้อมูลรถยนต์ (Battery Capacity & Vehicle)</h4>' +
+          '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="18" height="12" rx="2"></rect><line x1="23" y1="11" x2="23" y2="13"></line></svg> ข้อมูลรถคันที่เลือก: ' + escHtml(state.vehicleName) + '</h4>' +
+          '<div style="font-size:12px;color:var(--text-muted);margin:-4px 0 12px;">บันทึกลงแท็บ Vehicles ใน Google Sheets · เพิ่มหรือสลับรถได้ที่หน้า <a href="#" data-nav="vehicles" style="color:var(--primary);">โปรไฟล์รถยนต์</a></div>' +
           '<div class="form-grid">' +
             '<div class="form-group"><label>ชื่อรุ่นรถยนต์ (Vehicle Model)</label><input type="text" class="form-control" id="cfgVehicleName" value="' + state.vehicleName + '" required></div>' +
             '<div class="form-group"><label>ความจุแบตเตอรี่ (kWh) *แก้ไขได้ตลอดเวลา</label><input type="number" step="0.1" class="form-control mono" id="cfgBatteryCapacity" value="' + state.batteryCapacity + '" required><span class="form-hint">ใช้คำนวณ SOC% และพลังงานเข้าสู่แบตเตอรี่ (เช่น 68.5, 60.4, 82.5)</span></div>' +
@@ -4588,6 +5011,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '<div style="border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;">' +
           '<h4 style="font-size:14.5px;font-weight:700;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> ค่าเปรียบเทียบน้ำมันเบนซิน (Petrol Benchmark for Savings)</h4>' +
           '<div class="form-grid">' +
+            '<div class="form-group"><label>ชื่อผู้ขับหลัก</label><input type="text" class="form-control" id="cfgDefaultDriver" value="' + escHtml(state.defaultDriver) + '" placeholder="เช่น ชื่อ LINE ของคุณ"><span class="form-hint">ใช้แทนรายการที่ไม่มีชื่อผู้ขับ และเป็นค่าเริ่มต้นในฟอร์ม</span></div>' +
             '<div class="form-group"><label>ราคาน้ำมันเบนซินอ้างอิง (฿/ลิตร)</label><input type="number" step="0.1" class="form-control mono" id="cfgPetrolRate" value="' + state.petrolRate + '"></div>' +
             '<div class="form-group"><label>อัตราสิ้นเปลืองรถน้ำมัน (กิโลเมตร/ลิตร)</label><input type="number" step="0.5" class="form-control mono" id="cfgPetrolKmL" value="' + state.petrolKmPerL + '"></div>' +
           '</div>' +
@@ -4602,6 +5026,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
 
   function bindViewEvents() {
     bindTouCalc();
+    bindFleetEvents();
 
     var rangeSlider = document.getElementById("rangeSocSlider");
     if (rangeSlider) {
@@ -4662,7 +5087,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var btnExport = document.getElementById("btnExportCsv");
     if (btnExport) {
       btnExport.onclick = function() {
-        var rows = (state.payload.data && state.payload.data.rows) || [];
+        var rows = getRows();
         var lines = ["﻿Row,Date,Time,Kind,Distance_km,SOC_Start,SOC_End,Energy_kWh,Cost_Net_THB,Note"];
         rows.forEach(function(r) {
           lines.push([
@@ -4703,17 +5128,20 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var s0 = parseFloat(s0In.value) || 0;
         var s1 = parseFloat(s1In.value) || 0;
         var diff = Math.max(0, s1 - s0);
-        var calculatedKwh = (diff / 100) * state.batteryCapacity;
+        var capNow = capForSelect("addVehicleSelect");
+        var calculatedKwh = (diff / 100) * capNow;
         kwhIn.value = calculatedKwh.toFixed(2);
         var calculatedCost = calculatedKwh * state.unitRate;
         costIn.value = calculatedCost.toFixed(2);
 
-        if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s1 + " - " + s0 + ")% × " + state.batteryCapacity.toFixed(1) + " kWh";
+        if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s1 + " - " + s0 + ")% × " + capNow.toFixed(1) + " kWh";
         if (costHint) costHint.innerText = "คำนวณจาก " + calculatedKwh.toFixed(2) + " kWh × " + state.unitRate.toFixed(2) + " ฿/kWh";
       };
 
       s0In.oninput = recalc;
       s1In.oninput = recalc;
+      var addVehicleSel = document.getElementById("addVehicleSelect");
+      if (addVehicleSel) addVehicleSel.onchange = recalc;
       recalc();
 
       formAdd.onsubmit = async function(e) {
@@ -4732,7 +5160,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           costGridThb: formData.get("costNetThb"),
           durationMin: formData.get("durationMin"),
           odoEnd: formData.get("odoEnd"),
-          note: formData.get("note")
+          note: formData.get("note"),
+          vehicle: formData.get("vehicle"),
+          driver: formData.get("driver"),
+          purpose: formData.get("purpose")
         };
 
         try {
@@ -4793,9 +5224,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var kwh = 0;
         if (!isNaN(s0) && !isNaN(s1) && s0 > s1) {
           var socDiff = s0 - s1;
-          kwh = (socDiff / 100) * state.batteryCapacity;
+          var tripCap = capForSelect("tripVehicleSelect");
+          kwh = (socDiff / 100) * tripCap;
           kwhIn.value = kwh.toFixed(2);
-          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s0 + " - " + s1 + ")% × " + state.batteryCapacity.toFixed(1) + " kWh";
+          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s0 + " - " + s1 + ")% × " + tripCap.toFixed(1) + " kWh";
           if (d > 0 && isNaN(cons)) {
             cons = (kwh * 1000) / d;
             consIn.value = cons.toFixed(1);
@@ -4819,6 +5251,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       if (s1In) s1In.oninput = function() { recalcTrip("soc"); };
       if (consIn) consIn.oninput = function() { recalcTrip("cons"); };
       if (kwhIn) kwhIn.oninput = function() { recalcTrip("kwh"); };
+      var tripVehicleSel = document.getElementById("tripVehicleSelect");
+      if (tripVehicleSel) tripVehicleSel.onchange = function() { recalcTrip("soc"); };
 
       formTrip.onsubmit = async function(e) {
         e.preventDefault();
@@ -4839,7 +5273,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           energyKwh: formData.get("energyKwh"),
           costNetThb: formData.get("costNetThb"),
           costGridThb: formData.get("costNetThb"),
-          note: formData.get("note")
+          note: formData.get("note"),
+          vehicle: formData.get("vehicle"),
+          driver: formData.get("driver"),
+          purpose: formData.get("purpose")
         };
 
         try {
@@ -4877,28 +5314,37 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var petRate = parseFloat(document.getElementById("cfgPetrolRate").value) || 38.5;
         var petKmL = parseFloat(document.getElementById("cfgPetrolKmL").value) || 16.0;
         var vName = document.getElementById("cfgVehicleName").value.trim() || "XPENG G6 STD";
-        var vPlate = document.getElementById("cfgVehiclePlate").value.trim() || "4ขข 8821";
+        var vPlate = document.getElementById("cfgVehiclePlate").value.trim();
+        var focusV = getVehicleById(focusVehicleId());
+        var vehicleChanged = !focusV || focusV.name !== vName || (focusV.plate || "") !== vPlate || Number(focusV.batteryKwh) !== cap;
 
-        state.batteryCapacity = cap;
+        state.defaultDriver = document.getElementById("cfgDefaultDriver").value.trim();
+        try { localStorage.setItem("ev_default_driver", state.defaultDriver); } catch (e) {}
         state.unitRate = rate;
         state.rateOnPeak = onPeak;
         state.rateOffPeak = offPeak;
         state.petrolRate = petRate;
         state.petrolKmPerL = petKmL;
-        state.vehicleName = vName;
-        state.vehiclePlate = vPlate;
 
-        localStorage.setItem("ev_battery_capacity", cap.toString());
         localStorage.setItem("ev_unit_rate", rate.toString());
         localStorage.setItem("ev_rate_onpeak", onPeak.toString());
         localStorage.setItem("ev_rate_offpeak", offPeak.toString());
         localStorage.setItem("ev_petrol_rate", petRate.toString());
         localStorage.setItem("ev_petrol_km_l", petKmL.toString());
-        localStorage.setItem("ev_vehicle_name", vName);
-        localStorage.setItem("ev_vehicle_plate", vPlate);
 
-        showToast("บันทึกการตั้งค่าสำเร็จ! อัตราค่าไฟและขนาดแบตเตอรี่อัปเดตเรียบร้อยแล้ว", "success");
-        renderView();
+        if (!vehicleChanged) {
+          showToast("บันทึกการตั้งค่าสำเร็จ!", "success");
+          renderView();
+          return;
+        }
+        saveVehicleProfile({ id: focusV ? focusV.id : "", name: vName, plate: vPlate, batteryKwh: cap })
+          .then(function() {
+            showToast("บันทึกการตั้งค่าและข้อมูลรถลง Google Sheets แล้ว", "success");
+            renderView();
+          })
+          .catch(function(err) {
+            showToast("บันทึกข้อมูลรถไม่สำเร็จ: " + err.message, "error");
+          });
       };
 
       var btnSetLight = document.getElementById("btnSetThemeLight");
@@ -4929,14 +5375,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
           localStorage.removeItem("ev_vehicle_name");
           localStorage.removeItem("ev_vehicle_plate");
 
-          state.batteryCapacity = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.batteryCapacity) || 68.5;
           state.unitRate = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.rate) || 4.90;
           state.rateOnPeak = 6.60;
           state.rateOffPeak = 3.25;
           state.petrolRate = 38.5;
           state.petrolKmPerL = 16.0;
-          state.vehicleName = (window.__INITIAL_PAYLOAD__.data && window.__INITIAL_PAYLOAD__.data.meta && window.__INITIAL_PAYLOAD__.data.meta.vehicle) || "XPENG G6 STD";
-          state.vehiclePlate = "4ขข 8821 กทม.";
 
           showToast("คืนค่าเริ่มต้นเรียบร้อยแล้ว", "info");
           renderView();
@@ -4987,6 +5430,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
               '<div class="form-group"><label>วันที่ (YYYY-MM-DD)</label><input type="date" class="form-control" name="date" value="' + (record.iso || '') + '" required></div>' +
               '<div class="form-group"><label>เวลา (HH:MM)</label><input type="time" class="form-control" name="time" value="' + (record.time || '') + '"></div>' +
             '</div>' +
+            fleetFormFields("edit", record) +
             '<div class="form-grid">' +
               '<div class="form-group"><label>SOC เริ่ม (%)</label><input type="number" class="form-control" name="socStart" value="' + (record.s0 || 0) + '"></div>' +
               '<div class="form-group"><label>SOC จบ (%)</label><input type="number" class="form-control" name="socEnd" value="' + (record.s1 || 0) + '"></div>' +
@@ -4997,9 +5441,14 @@ window.__INITIAL_VIEW__ = "${initialTab}";
             '</div>' +
             '<div class="form-grid">' +
               '<div class="form-group"><label>ระยะทาง (km)</label><input type="number" step="0.1" class="form-control" name="distanceKm" value="' + (record.km || 0) + '"></div>' +
-              '<div class="form-group"><label>เลขไมล์สิ้นสุด (Odometer)</label><input type="number" class="form-control" name="odoEnd" value="' + (record.odoEnd || '') + '"></div>' +
+              '<div class="form-group"><label>ระยะเวลา (นาที)</label><input type="number" class="form-control" name="durationMin" value="' + (record.min || 0) + '"></div>' +
             '</div>' +
-            '<div class="form-group"><label>หมายเหตุ / สถานีชาร์จ</label><input type="text" class="form-control" name="note" value="' + (record.note || '') + '"></div>' +
+            '<div class="form-grid">' +
+              '<div class="form-group"><label>เลขไมล์เริ่มต้น</label><input type="number" step="0.1" class="form-control" name="odoStart" value="' + (record.odoStart || '') + '"></div>' +
+              '<div class="form-group"><label>เลขไมล์สิ้นสุด (Odometer)</label><input type="number" step="0.1" class="form-control" name="odoEnd" value="' + (record.odoEnd || '') + '"></div>' +
+            '</div>' +
+            '<div class="form-group"><label>อัตราสิ้นเปลือง (kWh/100km หรือ Wh/km)</label><input type="number" step="0.1" class="form-control" name="avgConsumption" value="' + (record.cons || '') + '"></div>' +
+            '<div class="form-group"><label>หมายเหตุ / สถานีชาร์จ</label><input type="text" class="form-control" name="note" value="' + escHtml(record.note || '') + '"></div>' +
           '</div>' +
           '<div class="modal-footer">' +
             '<button type="button" class="btn btn-secondary" id="btnCancelEdit">ยกเลิก</button>' +
@@ -5029,8 +5478,14 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         costNetThb: fd.get("costNetThb"),
         costGridThb: fd.get("costNetThb"),
         distanceKm: fd.get("distanceKm"),
+        durationMin: fd.get("durationMin"),
+        odoStart: fd.get("odoStart"),
         odoEnd: fd.get("odoEnd"),
-        note: fd.get("note")
+        avgConsumption: fd.get("avgConsumption"),
+        note: fd.get("note"),
+        vehicle: fd.get("vehicle"),
+        driver: fd.get("driver"),
+        purpose: fd.get("purpose")
       };
 
       try {
@@ -5108,6 +5563,10 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     };
   };
 
+  document.addEventListener("change", function(e) {
+    if (e.target && e.target.id === "vehicleSwitcher") setActiveVehicle(e.target.value);
+  });
+
   document.addEventListener("click", function(e) {
     var navTarget = e.target.closest("[data-view], [data-nav]");
     if (navTarget) {
@@ -5178,7 +5637,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     var btnExpReport = e.target.closest("#btnExportReportCsv, #btnExportCsv");
     if (btnExpReport) {
       e.preventDefault();
-      var rows = (state.payload.data && state.payload.data.rows) || [];
+      var rows = getRows();
       exportCurrentReportToCsv(rows);
       return;
     }

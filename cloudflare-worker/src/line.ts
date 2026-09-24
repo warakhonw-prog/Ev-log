@@ -65,6 +65,27 @@ export async function fetchLineImageBase64(
 /**
  * ส่งข้อความตอบกลับไปยัง LINE Messaging API
  */
+/**
+ * ดึงชื่อที่แสดงของผู้ใช้ LINE (ใช้เป็นชื่อผู้ขับอัตโนมัติ) คืน "" ถ้าดึงไม่ได้
+ */
+export async function fetchLineDisplayName(userId: string | undefined, accessToken: string): Promise<string> {
+  if (!userId) return "";
+  try {
+    const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      console.warn(`[LINE Profile] ${res.status}: ${await res.text()}`);
+      return "";
+    }
+    const profile: any = await res.json();
+    return (profile.displayName || "").toString().trim();
+  } catch (e) {
+    console.warn("[LINE Profile] failed:", e);
+    return "";
+  }
+}
+
 export async function replyLineMessage(
   replyToken: string,
   messages: any[],

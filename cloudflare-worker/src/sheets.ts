@@ -1,4 +1,10 @@
 import { Env, TripRecord, ChargingRecord } from "./types";
+import { RowExt, extToCells, ensureExtHeaders } from "./fleet";
+
+/** ตัวอักษรคอลัมน์สุดท้ายตามจำนวนค่า (13 = M, 16 = P) */
+function lastColumnLetter(count: number): string {
+  return String.fromCharCode(64 + Math.min(26, Math.max(1, count)));
+}
 
 function base64UrlEncode(str: string): string {
   return btoa(str)
@@ -156,7 +162,8 @@ async function inspectTargetSheet(
  */
 export async function appendTripToGoogleSheet(
   record: TripRecord,
-  env: Env
+  env: Env,
+  ext?: Partial<RowExt>
 ): Promise<any> {
   const accessToken = await getGoogleAccessToken(
     env.GOOGLE_CLIENT_EMAIL,
@@ -201,7 +208,9 @@ export async function appendTripToGoogleSheet(
         record.cost_net_thb,
         record.cost_grid_thb,
         record.note,
+        ...(ext ? extToCells(ext) : []),
       ];
+  if (ext && !hasIdColumn) await ensureExtHeaders(env, accessToken, title);
 
   const range = `${title}!A:A`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(
@@ -231,7 +240,8 @@ export async function appendTripToGoogleSheet(
  */
 export async function appendChargingToGoogleSheet(
   record: ChargingRecord,
-  env: Env
+  env: Env,
+  ext?: Partial<RowExt>
 ): Promise<any> {
   const accessToken = await getGoogleAccessToken(
     env.GOOGLE_CLIENT_EMAIL,
@@ -289,6 +299,7 @@ export async function appendChargingToGoogleSheet(
         record.cost_net_thb,
         record.cost_grid_thb,
         record.note,
+        ...(ext ? extToCells(ext) : []),
       ]
     : hasIdColumn
     ? [
@@ -314,6 +325,7 @@ export async function appendChargingToGoogleSheet(
         record.cost_grid_thb,
         record.location,
       ];
+  if (ext && isCombinedSheet) await ensureExtHeaders(env, accessToken, title);
 
   const range = `${title}!A:A`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(
@@ -354,8 +366,10 @@ export async function updateSheetRow(
     env.GOOGLE_PRIVATE_KEY
   );
   const { title } = await inspectTargetSheet(env.SPREADSHEET_ID, "Trips", accessToken);
+  if (rowValues.length > 13) await ensureExtHeaders(env, accessToken, title);
 
-  const range = `${title}!A${rowIndex}:M${rowIndex}`;
+  const endCol = lastColumnLetter(rowValues.length);
+  const range = `${title}!A${rowIndex}:${endCol}${rowIndex}`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(
     range
   )}?valueInputOption=USER_ENTERED`;
@@ -429,7 +443,7 @@ export async function deleteSheetRow(
 }
 
 /**
- * เพิ่มแถวข้อมูลดิบ A:M เข้า Google Sheet
+ * เพิ่มแถวข้อมูลดิบ A:M (หรือ A:P เมื่อมีคอลัมน์รถ/ผู้ขับ/ประเภท) เข้า Google Sheet
  */
 export async function appendRawRowToGoogleSheet(
   rowValues: any[],
@@ -440,6 +454,7 @@ export async function appendRawRowToGoogleSheet(
     env.GOOGLE_PRIVATE_KEY
   );
   const { title } = await inspectTargetSheet(env.SPREADSHEET_ID, "Trips", accessToken);
+  if (rowValues.length > 13) await ensureExtHeaders(env, accessToken, title);
 
   const range = `${title}!A:A`;
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(

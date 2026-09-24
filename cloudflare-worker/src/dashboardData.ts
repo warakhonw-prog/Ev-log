@@ -1,6 +1,7 @@
 import { Env } from "./types";
 import { analyzeBattery, BatteryAnalysis } from "./battery";
 import { analyzeTou, TouAnalysis } from "./tou";
+import { Vehicle, readVehicles, defaultVehicleId, fallbackVehicle, normalizePurpose } from "./fleet";
 
 function base64UrlEncode(str: string): string {
   return btoa(str)
@@ -98,7 +99,10 @@ export interface DashboardPayload {
   ok: boolean;
   data?: {
     rows: any[];
+    /** ผลวิเคราะห์แบตของรถคันหลัก (คงไว้ให้ /api/battery เดิม) */
     battery?: BatteryAnalysis;
+    /** ผลวิเคราะห์แบตแยกตามรถแต่ละคัน (key = Vehicle_ID) */
+    batteryByVehicle?: Record<string, BatteryAnalysis>;
     tou?: TouAnalysis;
     meta: {
       vehicle: string;
@@ -112,6 +116,8 @@ export interface DashboardPayload {
       sheetUrl: string;
       sheetTitle?: string;
       sheetId?: number;
+      vehicles?: Vehicle[];
+      defaultVehicleId?: string;
     };
   };
   error?: string;
@@ -184,13 +190,22 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
     }
     const metaJson: any = await metaRes.json();
     const sheetProps = metaJson.sheets?.[0]?.properties;
+    const allTitles: string[] = (metaJson.sheets || []).map((s: any) => s.properties?.title);
+    let vehicles: Vehicle[];
+    try {
+      vehicles = await readVehicles(env, accessToken, allTitles);
+    } catch (e) {
+      console.warn("readVehicles failed, using fallback vehicle:", e);
+      vehicles = [fallbackVehicle(env)];
+    }
+    const defVehicle = defaultVehicleId(vehicles);
     const sheetTitle = sheetProps?.title || "Sheet1";
     const sheetId = sheetProps?.sheetId ?? 0;
 
-    // ดึงข้อมูลแถวทั้งหมดจากคอลัมน์ A ถึง M
+    // ดึงข้อมูลแถวทั้งหมดจากคอลัมน์ A ถึง P (N-P = รถ / ผู้ขับ / ประเภทการเดินทาง)
     const valuesRes = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${env.SPREADSHEET_ID}/values/${encodeURIComponent(
-        sheetTitle + "!A:M"
+        sheetTitle + "!A:P"
       )}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
@@ -215,6 +230,8 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
             to: "",
             sheetTitle,
             sheetId,
+            vehicles,
+            defaultVehicleId: defVehicle,
             fetched: new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
             sheetUrl: `https://docs.google.com/spreadsheets/d/${env.SPREADSHEET_ID}/edit`,
           },
@@ -252,6 +269,9 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
       const net = parseNum(r[offset + 10]);
       const grid = parseNum(r[offset + 11]);
       const note = (r[offset + 12] || "").toString().trim();
+      const vehicle = (r[offset + 13] || "").toString().trim() || defVehicle;
+      const driver = (r[offset + 14] || "").toString().trim();
+      const purpose = normalizePurpose(r[offset + 15]);
 
       if (odoS > 0) {
         if (odoMin === null || odoS < odoMin) odoMin = odoS;
@@ -288,6 +308,9 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
         net,
         grid,
         note,
+        vehicle,
+        driver,
+        purpose,
       });
     }
 
@@ -308,7 +331,7 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
     });
 
     const defaultRate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
-    const batteryCap = parseFloat(env.BATTERY_CAPACITY_KWH || "68.5");
+    const batteryCap = (vehicles.find((v) => v.id === defVehicle) || vehicles[0]).batteryKwh;
     const fromDate = rows.length > 0 ? rows[0].iso : "";
     const toDate = rows.length > 0 ? rows[rows.length - 1].iso : "";
 
@@ -317,16 +340,23 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const fetchedStr = `${nowBkk.getUTCDate()} ${months[nowBkk.getUTCMonth()]} ${nowBkk.getUTCFullYear()} ${String(nowBkk.getUTCHours()).padStart(2, "0")}:${String(nowBkk.getUTCMinutes()).padStart(2, "0")}`;
 
-    const battery = analyzeBattery(rows, {
-      nominalKwh: batteryCap,
-      acEfficiency: parseFloat(env.CHARGING_EFFICIENCY || "0.90"),
-    });
+    // วิเคราะห์แบตแยกตามรถ เพราะความจุและพฤติกรรมของแต่ละคันต่างกัน
+    const acEfficiency = parseFloat(env.CHARGING_EFFICIENCY || "0.90");
+    const batteryByVehicle: Record<string, BatteryAnalysis> = {};
+    for (const v of vehicles) {
+      batteryByVehicle[v.id] = analyzeBattery(
+        rows.filter((r) => r.vehicle === v.id),
+        { nominalKwh: v.batteryKwh, acEfficiency }
+      );
+    }
+    const battery = batteryByVehicle[defVehicle];
 
     return {
       ok: true,
       data: {
         rows,
         battery,
+        batteryByVehicle,
         tou: analyzeTou(rows),
         meta: {
           vehicle: "XPENG G6 STD",
@@ -336,6 +366,8 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
           batteryCapacity: batteryCap,
           sheetTitle,
           sheetId,
+          vehicles,
+          defaultVehicleId: defVehicle,
           from: fromDate,
           to: toDate,
           fetched: fetchedStr,
