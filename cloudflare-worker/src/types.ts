@@ -14,6 +14,7 @@ export interface Env {
   GOOGLE_APPS_SCRIPT_URL?: string; // ทางเลือกเสริม
   GOOGLE_DRIVE_FOLDER_ID?: string; // Google Drive Folder ID สำหรับเก็บรูปสลิป
   LINE_USER_ID?: string; // เจาะจงส่งเฉพาะบุคคล (หากไม่ใส่จะ broadcast)
+  DASHBOARD_TOKEN?: string; // secret สำหรับ API ที่แก้ข้อมูล (Bearer หรือ login /login) ยาว >= 16 ตัวอักษร
 }
 
 export interface TripExtractionResult {

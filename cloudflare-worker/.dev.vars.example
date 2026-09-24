@@ -5,3 +5,5 @@ LINE_CHANNEL_ACCESS_TOKEN=your_line_channel_access_token
 SPREADSHEET_ID=your_google_spreadsheet_id
 GOOGLE_CLIENT_EMAIL=your-service-account@xxx.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# Token สำหรับ API ที่แก้ข้อมูล + หน้า /login (สร้างด้วย: openssl rand -base64 32)
+DASHBOARD_TOKEN=change_me_to_a_long_random_string

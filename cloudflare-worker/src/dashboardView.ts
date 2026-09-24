@@ -3415,8 +3415,22 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     if (dJson.ok) state.payload = dJson;
   }
 
+  // Write requests (POST/PUT/DELETE) need the session cookie from /login.
+  // On 401, send the user to the login page and come back here afterwards.
+  async function apiWrite(url, opts) {
+    opts = opts || {};
+    opts.credentials = "same-origin";
+    var res = await fetch(url, opts);
+    if (res.status === 401) {
+      showToast("กรุณาเข้าสู่ระบบก่อนแก้ไขข้อมูล", "error");
+      window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname + window.location.search);
+      throw new Error("Unauthorized");
+    }
+    return res;
+  }
+
   async function saveVehicleProfile(body) {
-    var res = await fetch("/api/vehicles", {
+    var res = await apiWrite("/api/vehicles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
@@ -5167,7 +5181,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         };
 
         try {
-          var res = await fetch("/api/records", {
+          var res = await apiWrite("/api/records", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -5280,7 +5294,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         };
 
         try {
-          var res = await fetch("/api/records", {
+          var res = await apiWrite("/api/records", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -5489,7 +5503,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       };
 
       try {
-        var res = await fetch("/api/records", {
+        var res = await apiWrite("/api/records", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
@@ -5539,7 +5553,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       var btn = document.getElementById("btnConfirmDel");
       btn.disabled = true; btn.innerText = "กำลังลบ...";
       try {
-        var res = await fetch("/api/records", {
+        var res = await apiWrite("/api/records", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheetRowIndex: sheetRowIndex })

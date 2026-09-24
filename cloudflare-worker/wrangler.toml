@@ -24,3 +24,4 @@ crons = [
 # 4. SPREADSHEET_ID
 # 5. GOOGLE_CLIENT_EMAIL
 # 6. GOOGLE_PRIVATE_KEY
+# 7. DASHBOARD_TOKEN (ป้องกัน /api/records, POST /api/vehicles, /api/cron/trigger)
