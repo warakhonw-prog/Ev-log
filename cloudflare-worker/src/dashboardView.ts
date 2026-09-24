@@ -2306,7 +2306,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       "trips": ["บันทึกการเดินทาง (Trips)", "ติดตามระยะทาง อัตรากินไฟ และประวัติการขับขี่"],
       "add-trip": ["บันทึกการเดินทางใหม่ (New Trip)", "กรอกข้อมูลระยะทาง เลขไมล์ อัตราสิ้นเปลือง และคำนวณพลังงานที่ใช้"],
       "vehicles": ["โปรไฟล์รถยนต์", "ข้อมูลจำเพาะ ขนาดแบตเตอรี่ และสถานะรถยนต์ไฟฟ้าในระบบ"],
-      "vehicle-detail": ["สเปกและสุขภาพแบตเตอรี่", "การประเมินรอบการชาร์จ (Cycles) และสุขภาพแบตเตอรี่"],
+      "vehicle-detail": ["สุขภาพแบตเตอรี่ (Battery Health)", "ความจุใช้งานจริง แนวโน้มการเสื่อม ระยะทางตามสไตล์ขับ และความเร็วชาร์จ DC"],
       "cost-analysis": ["วิเคราะห์ค่าใช้จ่ายและประหยัด", "เปรียบเทียบต้นทุนต่อกิโลเมตรกับรถน้ำมันเบนซิน"],
       "reports": ["สรุปรายงานและส่งออก", "ดาวน์โหลดรายงาน สรุปข้อมูลตามช่วงเวลา"],
       "manage": ["จัดการฐานข้อมูล Google Sheets", "ตรวจสอบแถวข้อมูล แก้ไข หรือลบรายการโดยตรง"],
@@ -3306,31 +3306,259 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     '</div>';
   }
 
-  function renderVehicleDetailView(agg) {
-    var healthEstimate = Math.max(90, Math.min(100, 100 - (agg.chargeCycles * 0.015))).toFixed(1);
+  function escHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
 
-    return '<div class="card" style="max-width:800px;margin:0 auto;width:100%;">' +
-      '<div class="card-header"><div><div class="card-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg> สุขภาพและการวิเคราะห์แบตเตอรี่ (Battery Health & Telemetry)</div><div class="card-subtitle">ประเมินจากรอบการชาร์จและประวัติการรับพลังงาน</div></div></div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:20px;">' +
-        '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;">' +
-          '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">สถานะสุขภาพแบต (SOH Estimate)</div>' +
-          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:var(--emerald);">' + healthEstimate + '%</div>' +
-          '<span class="badge badge-emerald" style="margin-top:6px;">สมบูรณ์ดีเยี่ยม (Excellent)</span>' +
+  function batteryEmptyCard(title, msg) {
+    return '<div class="card"><div class="card-header"><div class="card-title">' + title + '</div></div>' +
+      '<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:13px;">' + msg + '</div></div>';
+  }
+
+  function generateCapacityTrendChart(bat, nominal) {
+    var wins = (bat.trend && bat.trend.windows) || [];
+    var title = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> แนวโน้มความจุแบตเตอรี่ (Degradation Trend)';
+    if (wins.length === 0) {
+      return batteryEmptyCard(title, "ยังไม่มีทริปที่มี % แบตต้น/ปลายมากพอ (ต้องสะสม % แบตที่ใช้ไปรวม ≥ 60% จึงจะได้จุดแรก)");
+    }
+    var est = bat.capacity.estimateKwh;
+    var unc = bat.capacity.uncertaintyKwh || 0;
+    var sd = bat.trend.windowSdKwh;
+    var W = 640, H = 230, pl = 46, pr = 18, pt = 18, pb = 50;
+    var lo = nominal, hi = nominal;
+    wins.forEach(function(w) {
+      var e = sd !== null ? sd : w.uncertaintyKwh;
+      lo = Math.min(lo, w.capacityKwh - e);
+      hi = Math.max(hi, w.capacityKwh + e);
+    });
+    if (est !== null) { lo = Math.min(lo, est - unc); hi = Math.max(hi, est + unc); }
+    lo = Math.floor(lo - 1); hi = Math.ceil(hi + 1);
+    function y(v) { return pt + (hi - v) / (hi - lo) * (H - pt - pb); }
+    function x(i) { return wins.length === 1 ? (pl + (W - pl - pr) / 2) : pl + 30 + i * ((W - pl - pr - 60) / (wins.length - 1)); }
+
+    var grid = "";
+    var step = (hi - lo) > 12 ? 4 : 2;
+    for (var g = Math.ceil(lo / step) * step; g <= hi; g += step) {
+      grid += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="var(--border)" stroke-width="1" />' +
+        '<text x="' + (pl - 8) + '" y="' + (y(g) + 4) + '" font-size="10.5" font-family="JetBrains Mono" fill="var(--text-muted)" text-anchor="end">' + g + '</text>';
+    }
+    var band = "";
+    if (est !== null) {
+      band = '<rect x="' + pl + '" y="' + y(est + unc) + '" width="' + (W - pl - pr) + '" height="' + Math.max(1, y(est - unc) - y(est + unc)) + '" fill="var(--primary-soft)" opacity="0.8" />' +
+        '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(est) + '" y2="' + y(est) + '" stroke="var(--primary)" stroke-width="1.5" />';
+    }
+    var nominalLine = '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(nominal) + '" y2="' + y(nominal) + '" stroke="var(--text-muted)" stroke-width="1.2" stroke-dasharray="5 4" />';
+    var legendItem = function(swatch, text) {
+      return '<span style="display:inline-flex;align-items:center;gap:6px;">' + swatch + text + '</span>';
+    };
+    var legend = '<div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:11.5px;color:var(--text-muted);">' +
+      legendItem('<svg width="18" height="10"><circle cx="9" cy="5" r="3.5" fill="var(--surface)" stroke="var(--primary)" stroke-width="2" /></svg>', 'ความจุรายช่วง') +
+      (est !== null ? legendItem('<span style="display:inline-block;width:18px;height:10px;background:var(--primary-soft);border-top:2px solid var(--primary);"></span>', 'ค่าประเมินรวม <strong style="color:var(--primary);font-family:var(--font-mono);">' + est.toFixed(1) + ' ±' + unc.toFixed(1) + ' kWh</strong>') : '') +
+      legendItem('<span style="display:inline-block;width:18px;border-top:2px dashed var(--text-muted);"></span>', 'สเปก <span style="font-family:var(--font-mono);">' + nominal.toFixed(1) + ' kWh</span>') +
+    '</div>';
+    var path = wins.map(function(w, i) { return (i === 0 ? "M" : "L") + x(i) + " " + y(w.capacityKwh); }).join(" ");
+    var pts = wins.map(function(w, i) {
+      var e = sd !== null ? sd : w.uncertaintyKwh;
+      var tip = formatThaiDate(w.fromIso) + " - " + formatThaiDate(w.toIso) + ": " + w.capacityKwh.toFixed(1) + " kWh (" + w.trips + " ทริป, SOC " + w.socPct + "%, EFC " + w.efc.toFixed(1) + ")";
+      return '<g><title>' + escHtml(tip) + '</title>' +
+        '<line x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(w.capacityKwh + e) + '" y2="' + y(w.capacityKwh - e) + '" stroke="var(--primary)" stroke-width="1.5" opacity="0.55" />' +
+        '<line x1="' + (x(i) - 5) + '" x2="' + (x(i) + 5) + '" y1="' + y(w.capacityKwh + e) + '" y2="' + y(w.capacityKwh + e) + '" stroke="var(--primary)" stroke-width="1.5" opacity="0.55" />' +
+        '<line x1="' + (x(i) - 5) + '" x2="' + (x(i) + 5) + '" y1="' + y(w.capacityKwh - e) + '" y2="' + y(w.capacityKwh - e) + '" stroke="var(--primary)" stroke-width="1.5" opacity="0.55" />' +
+        '<circle cx="' + x(i) + '" cy="' + y(w.capacityKwh) + '" r="5" fill="var(--surface)" stroke="var(--primary)" stroke-width="2.5" />' +
+        '<text x="' + x(i) + '" y="' + (H - pb + 18) + '" font-size="10.5" font-family="Anuphan" fill="var(--text-muted)" text-anchor="middle">' + formatThaiDate(w.toIso) + '</text>' +
+        '<text x="' + x(i) + '" y="' + (H - pb + 32) + '" font-size="9.5" font-family="JetBrains Mono" fill="var(--text-subtle)" text-anchor="middle">' + (w.odo ? fmtNum(w.odo, 0) + " km" : "") + '</text>' +
+        '</g>';
+    }).join("");
+
+    var trendSummary;
+    if (bat.trend.slopeKwhPer10kKm !== null) {
+      var s = bat.trend.slopeKwhPer10kKm;
+      trendSummary = 'อัตราเปลี่ยนแปลง <strong>' + (s >= 0 ? "+" : "") + s.toFixed(2) + ' kWh ต่อ 10,000 km</strong> (' + escHtml(bat.trend.note) + ')';
+    } else {
+      trendSummary = escHtml(bat.trend.note);
+    }
+    if (bat.trend.earlyKwh !== null && bat.trend.recentKwh !== null) {
+      var ch = (bat.trend.recentKwh - bat.trend.earlyKwh) / bat.trend.earlyKwh * 100;
+      trendSummary += '<br>3 ช่วงแรกเฉลี่ย ' + bat.trend.earlyKwh.toFixed(1) + ' kWh → 3 ช่วงล่าสุด ' + bat.trend.recentKwh.toFixed(1) + ' kWh (' + (ch >= 0 ? "+" : "") + ch.toFixed(1) + '%)';
+    }
+
+    return '<div class="card">' +
+      '<div class="card-header"><div><div class="card-title">' + title + '</div>' +
+      '<div class="card-subtitle">แต่ละจุดคือความจุที่คำนวณจากทริปที่ใช้แบตรวมกัน ~60% · เส้นตั้ง = ช่วงความคลาดเคลื่อน</div></div>' +
+      '<span class="badge badge-sky">' + wins.length + ' ช่วง</span></div>' +
+      '<div style="overflow-x:auto;"><svg width="100%" viewBox="0 0 ' + W + ' ' + H + '" style="min-width:320px;display:block;">' +
+        grid + band + nominalLine +
+        '<path d="' + path + '" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.6" />' +
+        pts +
+      '</svg></div>' +
+      legend +
+      '<div style="margin-top:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">' + trendSummary + '</div>' +
+    '</div>';
+  }
+
+  function generateRangePredictorCard(bat) {
+    var title = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> คาดการณ์ระยะทางจริงตามสไตล์ขับขี่ (Dynamic Range)';
+    var rg = bat.range;
+    if (!rg || !rg.scenarios || rg.scenarios.length === 0) {
+      return batteryEmptyCard(title, "ยังไม่มีข้อมูลทริปที่มีอัตรากินไฟ");
+    }
+    var soc = rg.currentSoc !== null ? Math.max(15, rg.currentSoc) : 80;
+    var colors = { highway: "var(--amber)", city: "var(--rose)", eco: "var(--emerald)" };
+    var icons = { highway: "🛣️", city: "🚦", eco: "🌿" };
+    var cards = rg.scenarios.map(function(sc) {
+      var kmpp = rg.usableKwh / 100 / (sc.whKm / 1000);
+      var src = sc.source === "observed"
+        ? '<span class="badge badge-emerald">จากทริปจริง ' + sc.observedTrips + ' ทริป · ' + fmtNum(sc.observedKm, 0) + ' km</span>'
+        : '<span class="badge badge-amber">ประมาณการ ' + (sc.observedTrips > 0 ? '(ข้อมูลจริง ' + fmtNum(sc.observedKm, 0) + ' km ยังไม่พอ)' : '(ยังไม่มีทริปแบบนี้)') + '</span>';
+      return '<div style="border:1px solid var(--border);border-top:3px solid ' + colors[sc.key] + ';border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">' + icons[sc.key] + '</span><strong style="font-size:13.5px;">' + escHtml(sc.label) + '</strong></div>' +
+        '<div style="font-size:11.5px;color:var(--text-muted);">' + escHtml(sc.desc) + '</div>' +
+        '<div style="display:flex;align-items:baseline;gap:6px;margin-top:2px;">' +
+          '<span class="range-from-soc" data-kmpp="' + kmpp.toFixed(4) + '" style="font-family:var(--font-mono);font-size:30px;font-weight:700;color:' + colors[sc.key] + ';">' + Math.max(0, Math.round(kmpp * (soc - 10))) + '</span>' +
+          '<span style="font-size:12px;color:var(--text-muted);">km จนเหลือ 10%</span>' +
         '</div>' +
-        '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;text-align:center;">' +
-          '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">รอบการชาร์จเทียบเท่า (Full Cycles)</div>' +
-          '<div style="font-family:var(--font-mono);font-size:32px;font-weight:700;color:var(--teal);">' + agg.chargeCycles.toFixed(1) + '</div>' +
-          '<div style="font-size:11.5px;color:var(--text-subtle);margin-top:6px;">รองรับได้อีกกว่า 2,500 รอบ</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--surface-subtle);border-radius:var(--radius-sm);padding:8px;font-size:11px;">' +
+          '<div><div style="color:var(--text-muted);">อัตรากินไฟ</div><strong style="font-family:var(--font-mono);font-size:12.5px;">' + sc.whKm + '</strong> <span style="color:var(--text-muted);">Wh/km</span></div>' +
+          '<div><div style="color:var(--text-muted);">100→0%</div><strong style="font-family:var(--font-mono);font-size:12.5px;">' + sc.fullKm + '</strong> <span style="color:var(--text-muted);">km</span></div>' +
+          '<div><div style="color:var(--text-muted);">90→10%</div><strong style="font-family:var(--font-mono);font-size:12.5px;">' + sc.dailyKm + '</strong> <span style="color:var(--text-muted);">km</span></div>' +
         '</div>' +
+        '<div>' + src + '</div>' +
+      '</div>';
+    }).join("");
+
+    return '<div class="card">' +
+      '<div class="card-header"><div><div class="card-title">' + title + '</div>' +
+      '<div class="card-subtitle">อิงความจุใช้งานจริง ' + rg.usableKwh.toFixed(1) + ' kWh และอัตรากินไฟเฉลี่ยของคุณ ' + (rg.baselineWhKm !== null ? rg.baselineWhKm.toFixed(0) : "-") + ' Wh/km</div></div></div>' +
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--surface-subtle);border-radius:var(--radius-md);">' +
+        '<label for="rangeSocSlider" style="font-size:12.5px;font-weight:600;">% แบตตอนออกเดินทาง</label>' +
+        '<input type="range" id="rangeSocSlider" min="15" max="100" step="1" value="' + soc + '" style="flex:1;min-width:140px;accent-color:var(--primary);">' +
+        '<strong id="rangeSocValue" style="font-family:var(--font-mono);font-size:15px;color:var(--primary);min-width:44px;text-align:right;">' + soc + '%</strong>' +
+        (rg.currentSoc !== null ? '<span style="font-size:11px;color:var(--text-muted);width:100%;">ค่าเริ่มต้นคือ % แบตล่าสุดที่บันทึกไว้ (' + rg.currentSoc + '%) · คำนวณจนเหลือ 10% เพื่อเผื่อสำรอง</span>' : '') +
       '</div>' +
-      '<div style="background:var(--surface-subtle);border-radius:var(--radius-lg);padding:18px;display:flex;flex-direction:column;gap:12px;">' +
-        '<h4 style="font-size:14px;font-weight:600;">แนวทางการถนอมแบตเตอรี่รถยนต์ไฟฟ้า:</h4>' +
-        '<ul style="padding-left:20px;font-size:13px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;">' +
-          '<li>สำหรับการใช้งานประจำวัน แนะนำชาร์จอยู่ในช่วง <strong>20% - 80%</strong> เพื่ออายุการใช้งานที่ยาวนานที่สุด</li>' +
-          '<li>ควรชาร์จแบบ AC เป็นหลัก และใช้ DC Fast Charging เมื่อจำเป็นระหว่างการเดินทางไกล</li>' +
-          '<li>หากจอดรถทิ้งไว้เป็นเวลานาน แนะนำรักษาระดับแบตเตอรี่ไว้ที่ประมาณ 50%</li>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;">' + cards + '</div>' +
+      '<div style="margin-top:12px;font-size:11.5px;color:var(--text-muted);line-height:1.6;">ถ้ามีทริปจริงในช่วงความเร็วนั้นรวม ≥ 60 km จะใช้อัตรากินไฟจริงของคุณ ถ้ายังไม่มีจะใช้ค่าเฉลี่ยของคุณคูณตัวปรับ (ทางด่วน ×1.35, รถติด+แอร์ ×1.20, Eco ×0.92) ซึ่งอิงพฤติกรรม EV ทั่วไป</div>' +
+    '</div>';
+  }
+
+  function generateDcProfilerCard(bat) {
+    var title = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> วิเคราะห์ความเร็วชาร์จ DC (Fast Charge Profiler)';
+    var dc = bat.dcProfile;
+    var sessions = (dc && dc.sessions) || [];
+    var stat = function(label, val, unit, color) {
+      return '<div style="border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;min-width:0;">' +
+        '<div style="font-size:11.5px;color:var(--text-muted);">' + label + '</div>' +
+        '<div style="margin-top:4px;"><strong style="font-family:var(--font-mono);font-size:20px;color:' + color + ';">' + val + '</strong> <span style="font-size:11px;color:var(--text-muted);">' + unit + '</span></div></div>';
+    };
+    var stats = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">' +
+      stat("ความเร็ว DC เฉลี่ย", dc.avgKw !== null ? dc.avgKw.toFixed(0) : "-", "kW", "var(--amber)") +
+      stat("เร็วที่สุดที่เคยได้", dc.maxKw !== null ? dc.maxKw.toFixed(0) : "-", "kW", "var(--amber)") +
+      stat("ราคาเฉลี่ย DC", dc.avgThbPerKwh !== null ? dc.avgThbPerKwh.toFixed(2) : "-", "฿/kWh", "var(--text-main)") +
+      stat("ชาร์จบ้าน AC เฉลี่ย", bat.acProfile.avgKw !== null ? bat.acProfile.avgKw.toFixed(1) : "-", "kW (" + bat.acProfile.sessions + " ครั้ง)", "var(--primary)") +
+    '</div>';
+    var rec = '<div style="padding:12px 14px;border-radius:var(--radius-md);background:var(--surface-subtle);border-left:3px solid var(--amber);display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;">' +
+      '<div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--amber);line-height:1.2;">' + dc.recommendation.cutoffSoc + '%</div>' +
+      '<div style="font-size:12.5px;line-height:1.6;"><strong>จุดตัด SOC ที่แนะนำ</strong> <span class="badge ' + (dc.recommendation.basis === "data" ? "badge-emerald" : "badge-amber") + '" style="margin-left:4px;">' + (dc.recommendation.basis === "data" ? "จากข้อมูลรถคันนี้" : "หลักการทั่วไป") + '</span><br>' + escHtml(dc.recommendation.text) + '</div>' +
+    '</div>';
+    if (sessions.length === 0) {
+      return '<div class="card"><div class="card-header"><div class="card-title">' + title + '</div></div>' + stats + rec +
+        '<div style="text-align:center;color:var(--text-muted);padding:16px 0;font-size:13px;">ยังไม่มีประวัติชาร์จ DC</div></div>';
+    }
+    var maxKw = dc.maxKw || 1;
+    var body = sessions.slice().reverse().map(function(s) {
+      var bar = s.avgKw !== null
+        ? '<div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;min-width:50px;height:8px;background:var(--surface-subtle);border-radius:4px;overflow:hidden;"><div style="width:' + Math.round(s.avgKw / maxKw * 100) + '%;height:100%;background:linear-gradient(90deg,#FBBF24,#F59E0B);"></div></div><span class="mono">' + s.avgKw.toFixed(0) + '</span></div>'
+        : '<span style="color:var(--text-subtle);">-</span>';
+      return '<tr>' +
+        '<td style="white-space:nowrap;">' + formatThaiDate(s.iso) + ' <span style="color:var(--text-muted);font-size:11px;">' + escHtml(s.time) + '</span></td>' +
+        '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(s.station) + '">' + escHtml(s.station) + '</td>' +
+        '<td class="mono">' + (s.s0 !== null ? s.s0 + "→" + s.s1 + "%" : '<span style="color:var(--text-subtle);">ไม่ระบุ</span>') + '</td>' +
+        '<td class="mono">' + s.kwh.toFixed(2) + '</td>' +
+        '<td class="mono">' + (s.min > 0 ? s.min : "-") + '</td>' +
+        '<td style="min-width:110px;">' + bar + '</td>' +
+        '<td class="mono">' + (s.minPer10Pct !== null ? s.minPer10Pct.toFixed(1) : "-") + '</td>' +
+        '<td class="mono">' + (s.thbPerKwh !== null ? s.thbPerKwh.toFixed(2) : "-") + '</td>' +
+      '</tr>';
+    }).join("");
+    return '<div class="card">' +
+      '<div class="card-header"><div><div class="card-title">' + title + '</div>' +
+      '<div class="card-subtitle">ความเร็วเฉลี่ยต่อครั้ง = kWh ÷ เวลาชาร์จ · บันทึก SOC ต้น/ปลายครบเท่าไร ยิ่งวิเคราะห์ช่วงที่ชาร์จช้าลงได้แม่นขึ้น</div></div>' +
+      '<span class="badge badge-amber">' + sessions.length + ' ครั้ง</span></div>' +
+      stats + rec +
+      '<div class="table-wrapper"><table class="data-table"><thead><tr><th>วันที่</th><th>สถานี</th><th>SOC</th><th>kWh</th><th>นาที</th><th>kW เฉลี่ย</th><th>นาที/10%</th><th>฿/kWh</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '</div>';
+  }
+
+  function renderVehicleDetailView(agg) {
+    var bat = state.payload.data && state.payload.data.battery;
+    if (!bat) {
+      return batteryEmptyCard("สุขภาพแบตเตอรี่", "ไม่พบข้อมูลวิเคราะห์แบตเตอรี่ กดรีเฟรชข้อมูลอีกครั้ง");
+    }
+    var nominal = state.batteryCapacity;
+    var cap = bat.capacity;
+    var est = cap.estimateKwh;
+    var sohPct = est !== null && nominal > 0 ? est / nominal * 100 : null;
+    var efc = nominal > 0 ? bat.cycles.throughputKwh / nominal : 0;
+    var confMap = {
+      none: ["ข้อมูลยังไม่พอ", "badge-rose"],
+      low: ["ความเชื่อมั่นต่ำ", "badge-amber"],
+      medium: ["ความเชื่อมั่นปานกลาง", "badge-sky"],
+      high: ["ความเชื่อมั่นสูง", "badge-emerald"]
+    };
+    var conf = confMap[cap.confidence] || confMap.none;
+    var sohColor = sohPct === null ? "var(--text-muted)" : sohPct >= 95 ? "var(--emerald)" : sohPct >= 88 ? "var(--primary)" : sohPct >= 80 ? "var(--amber)" : "var(--rose)";
+
+    var kpis = '<div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">' +
+      '<div class="kpi-card" style="--kpi-accent:var(--primary);">' +
+        '<span class="kpi-label">ความจุใช้งานจริง (ประเมิน)</span>' +
+        '<div class="kpi-value-box" style="margin-top:8px;"><span class="kpi-value" style="color:var(--primary);">' + (est !== null ? est.toFixed(1) : "-") + '</span><span class="kpi-unit">kWh' + (cap.uncertaintyKwh !== null ? ' ±' + cap.uncertaintyKwh.toFixed(1) : '') + '</span></div>' +
+        '<div class="kpi-subtext"><span class="badge ' + conf[1] + '">' + conf[0] + '</span> ' + cap.drive.trips + ' ทริป · SOC รวม ' + cap.drive.socPct + '%</div>' +
+      '</div>' +
+      '<div class="kpi-card" style="--kpi-accent:' + sohColor + ';">' +
+        '<span class="kpi-label">เทียบสเปก ' + nominal.toFixed(1) + ' kWh</span>' +
+        '<div class="kpi-value-box" style="margin-top:8px;"><span class="kpi-value" style="color:' + sohColor + ';">' + (sohPct !== null ? sohPct.toFixed(1) : "-") + '</span><span class="kpi-unit">%</span></div>' +
+        '<div class="kpi-subtext">รวมส่วนสำรองของ BMS ด้วย ไม่ได้มาจากการเสื่อมทั้งหมด</div>' +
+      '</div>' +
+      '<div class="kpi-card" style="--kpi-accent:var(--indigo);">' +
+        '<span class="kpi-label">รอบชาร์จเทียบเท่า (EFC)</span>' +
+        '<div class="kpi-value-box" style="margin-top:8px;"><span class="kpi-value" style="color:var(--indigo);">' + efc.toFixed(1) + '</span><span class="kpi-unit">รอบ</span></div>' +
+        '<div class="kpi-subtext">พลังงานเข้าแบตสะสม ' + fmtNum(bat.cycles.throughputKwh, 0) + ' kWh</div>' +
+      '</div>' +
+      '<div class="kpi-card" style="--kpi-accent:var(--emerald);">' +
+        '<span class="kpi-label">ตรวจสอบไขว้จากการชาร์จ</span>' +
+        '<div class="kpi-value-box" style="margin-top:8px;"><span class="kpi-value" style="color:var(--emerald);">' + (cap.charge.medianKwh !== null ? cap.charge.medianKwh.toFixed(1) : "-") + '</span><span class="kpi-unit">kWh</span></div>' +
+        '<div class="kpi-subtext">ค่ากลางจาก ' + cap.charge.samples.length + ' ครั้งที่มี kWh มิเตอร์และ SOC</div>' +
+      '</div>' +
+    '</div>';
+
+    var tips = (bat.dataTips || []).map(function(t) { return '<li>' + escHtml(t) + '</li>'; }).join("");
+
+    var method = '<div class="card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">' +
+      '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        '<h4 style="font-size:14px;font-weight:600;">วิธีคำนวณ</h4>' +
+        '<ul style="padding-left:20px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;line-height:1.6;">' +
+          '<li><strong>ความจุใช้งานจริง</strong> = พลังงานที่รถแสดงว่าใช้ไป (ระยะทาง × kWh/100km) ÷ % แบตที่ลดลง รวมทุกทริป ทั้งสองค่ามาจากตัวรถ จึงไม่ขึ้นกับการสูญเสียของเครื่องชาร์จ</li>' +
+          '<li><strong>ตรวจสอบไขว้</strong> = kWh จากมิเตอร์ × ประสิทธิภาพ (AC 90%, DC 95%) ÷ % แบตที่เพิ่ม โดยตัดแถวที่ kWh คำนวณมาจาก % แบตออก</li>' +
+          '<li><strong>EFC</strong> = พลังงานเข้าแบตสะสม ÷ ความจุสเปก (ปรับได้ในหน้าตั้งค่า)</li>' +
+          '<li>ความจุใช้งานจริงมักต่ำกว่าสเปกรวม 3-6% เพราะ BMS กันส่วนสำรองไว้ ให้ดูเป็นหลักว่าค่าลดลงตามเวลาหรือไม่</li>' +
         '</ul>' +
       '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;">' +
+        (tips ? '<h4 style="font-size:14px;font-weight:600;">เพิ่มความแม่นยำ</h4><ul style="padding-left:20px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;line-height:1.6;">' + tips + '</ul>' : '') +
+        '<h4 style="font-size:14px;font-weight:600;margin-top:4px;">ถนอมแบตเตอรี่ LFP</h4>' +
+        '<ul style="padding-left:20px;font-size:12.5px;color:var(--text-muted);display:flex;flex-direction:column;gap:6px;line-height:1.6;">' +
+          '<li>ชาร์จเต็ม 100% อย่างน้อยสัปดาห์ละครั้ง ให้ BMS ปรับเทียบ % แบตให้แม่นยำ</li>' +
+          '<li>ใช้ AC เป็นหลัก และใช้ DC ตอนเดินทางไกล</li>' +
+          '<li>อย่าจอดตากแดดนานๆ ตอนแบตต่ำกว่า 10%</li>' +
+        '</ul>' +
+      '</div>' +
+    '</div>';
+
+    return '<div style="display:flex;flex-direction:column;gap:20px;">' +
+      kpis +
+      generateCapacityTrendChart(bat, nominal) +
+      generateRangePredictorCard(bat) +
+      generateDcProfilerCard(bat) +
+      method +
     '</div>';
   }
 
@@ -4206,6 +4434,19 @@ window.__INITIAL_VIEW__ = "${initialTab}";
   }
 
   function bindViewEvents() {
+    var rangeSlider = document.getElementById("rangeSocSlider");
+    if (rangeSlider) {
+      rangeSlider.oninput = function() {
+        var soc = parseInt(rangeSlider.value, 10);
+        var label = document.getElementById("rangeSocValue");
+        if (label) label.innerText = soc + "%";
+        document.querySelectorAll(".range-from-soc").forEach(function(el) {
+          var kmpp = parseFloat(el.getAttribute("data-kmpp")) || 0;
+          el.innerText = Math.max(0, Math.round(kmpp * (soc - 10)));
+        });
+      };
+    }
+
     var btnRefresh = document.getElementById("btnRefreshData");
     if (btnRefresh) {
       btnRefresh.onclick = async function() {

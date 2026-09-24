@@ -85,6 +85,7 @@ d:\ev\
 │           reports.ts               # Weekly & Monthly Aggregator, Date Utils
 │           dashboardData.ts         # Google Sheets Data Pipeline & Normalization
 │           dashboardView.ts         # Executive Web Dashboard HTML/SVG Renderer
+│           battery.ts               # Battery Health & Telemetry Pro (SoH, Range Predictor, DC Profiler)
 │
 ├───config/                          # [Python Legacy]
 ├───models/                          # [Python Legacy]
@@ -244,11 +245,14 @@ export interface PeriodSummary {
 
 อ้างอิงตาม [ROADMAP.md](file:///d:/ev/ROADMAP.md) รายการพัฒนาในอนาคตถูกจัดลำดับความสำคัญไว้ดังนี้:
 
-### 🔋 แผนที่ 2: Predictive Battery Health & Telemetry Pro (ระดับความสำคัญ: สูง)
-- [ ] **Battery State of Health (SoH) Tracker**: คำนวณความจุแบตเตอรี่จริงเทียบกับสเปกโรงงาน (68.5 kWh) จากข้อมูลพลังงานที่ประจุได้จริงในช่วง SOC ต่างๆ
-- [ ] **Degradation Curve**: สร้างกราฟแสดงการเสื่อมของแบตเตอรี่ตาม Equivalent Full Cycles และระยะทางสะสม
-- [ ] **Dynamic Range Predictor**: เพิ่มตัวคำนวณคาดการณ์ระยะทางจริงตามสภาพการขับขี่ (Highway 110-120 km/h, City Heavy Traffic แอร์ฉ่ำ, Eco Cruise)
-- [ ] **DC Charging Speed Profiler**: วิเคราะห์ความเร็วการชาร์จ (kW) ในช่วง SOC 10% → 80% เทียบกับ 80% → 100% เพื่อแนะนำจุดตัด SOC ที่ประหยัดเวลาที่สุด
+### 🔋 แผนที่ 2: Predictive Battery Health & Telemetry Pro (ทำแล้ว รอสะสมข้อมูล)
+- [x] **SoH / Usable Capacity**: `battery.ts` → `analyzeBattery(rows, opts)` เป็น pure function ผลลัพธ์แนบอยู่ใน `/api/data` ที่ `data.battery` และมี `GET /api/battery`
+  - วิธีหลัก: Σ(km × kWh/100km) ÷ Σ SOC ที่ลดลง ของทริปที่มี SOC ครบ
+  - ตรวจสอบไขว้จากการชาร์จ: **ต้องตัดแถวที่ kWh = ΔSOC × ความจุ (68.8/68.5 หรือ ÷ efficiency)** เพราะเป็นค่าคำนวณ ไม่ใช่ค่ามิเตอร์
+  - ฝั่ง client คำนวณ % เทียบสเปกและ EFC จาก `state.batteryCapacity` เพื่อให้ปรับค่าในหน้าตั้งค่าได้
+- [x] **Degradation Curve**: แยกเป็นช่วงละ ~60% SOC ความชันจะคำนวณเมื่อมี ≥ 4 ช่วงและครอบคลุม ≥ 3,000 km
+- [x] **Dynamic Range Predictor**: ใช้อัตรากินไฟจริงตามช่วงความเร็ว (≥ 60 km) ถ้าข้อมูลไม่พอใช้ค่าเฉลี่ยคูณตัวปรับ
+- [x] **DC Charging Profiler**: ความเร็วเฉลี่ยต่อครั้ง และจุดตัด SOC ที่แนะนำ (ใช้ข้อมูลจริงเมื่อมี SOC จบ ≤85% และ >85% อย่างละ ≥ 2 ครั้ง)
 
 ### ⚡ แผนที่ 3: Smart TOU & Home Wallbox IoT (ระดับความสำคัญ: ปานกลาง)
 - [ ] **TOU Charging Cost Classifier**: แยกสถิติชาร์จบ้าน On-Peak (09:00 - 22:00 น. วันทำงาน) vs Off-Peak (22:00 - 09:00 น. และวันหยุด)
@@ -309,4 +313,7 @@ curl -s "https://ev-log-bot.eb-book.workers.dev/api/cron/trigger?type=monthly"
 
 # ดึงข้อมูล Raw JSON ของแดชบอร์ด
 curl -s "https://ev-log-bot.eb-book.workers.dev/api/data"
+
+# ดึงผลวิเคราะห์แบตเตอรี่ (SoH, Range, DC Profiler)
+curl -s "https://ev-log-bot.eb-book.workers.dev/api/battery"
 ```

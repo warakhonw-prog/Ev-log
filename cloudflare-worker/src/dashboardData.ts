@@ -1,4 +1,5 @@
 import { Env } from "./types";
+import { analyzeBattery, BatteryAnalysis } from "./battery";
 
 function base64UrlEncode(str: string): string {
   return btoa(str)
@@ -96,6 +97,7 @@ export interface DashboardPayload {
   ok: boolean;
   data?: {
     rows: any[];
+    battery?: BatteryAnalysis;
     meta: {
       vehicle: string;
       odoStart: number | null;
@@ -313,10 +315,16 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const fetchedStr = `${nowBkk.getUTCDate()} ${months[nowBkk.getUTCMonth()]} ${nowBkk.getUTCFullYear()} ${String(nowBkk.getUTCHours()).padStart(2, "0")}:${String(nowBkk.getUTCMinutes()).padStart(2, "0")}`;
 
+    const battery = analyzeBattery(rows, {
+      nominalKwh: batteryCap,
+      acEfficiency: parseFloat(env.CHARGING_EFFICIENCY || "0.90"),
+    });
+
     return {
       ok: true,
       data: {
         rows,
+        battery,
         meta: {
           vehicle: "XPENG G6 STD",
           odoStart: odoMin,

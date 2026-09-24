@@ -84,6 +84,18 @@ export default {
       });
     }
 
+    // 2.1 Battery Health & Telemetry Pro (ผลวิเคราะห์แบตเตอรี่อย่างเดียว)
+    if (request.method === "GET" && url.pathname === "/api/battery") {
+      const payload = await fetchDashboardDataFromSheets(env);
+      const body = payload.ok
+        ? { ok: true, battery: payload.data?.battery ?? null }
+        : { ok: false, error: payload.error };
+      return new Response(JSON.stringify(body), {
+        status: payload.ok ? 200 : 500,
+        headers: corsHeaders,
+      });
+    }
+
     // 3. API Records CRUD Endpoints
     if (request.method === "POST" && url.pathname === "/api/records") {
       try {
