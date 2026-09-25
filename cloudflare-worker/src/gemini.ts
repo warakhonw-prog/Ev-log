@@ -35,7 +35,9 @@ async function fetchSupportedModels(apiKey: string): Promise<string[]> {
 export async function analyzeEVImageWithGemini(
   imageBase64: string,
   env: Env,
-  mimeType: string = "image/jpeg"
+  mimeType: string = "image/jpeg",
+  // เวลาสิ้นสุด (epoch ms) ของการลองทุกโมเดล กัน waitUntil ของ Worker (~30 วินาที) ตัดงานทิ้งก่อนได้ตอบ LINE
+  deadline: number = Date.now() + 25000
 ): Promise<UnifiedExtractionResponse> {
   const apiKey = env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
@@ -151,13 +153,18 @@ Return strictly a JSON object with this structure:
 
   // ลองยิงแต่ละโมเดล ถ้าเจอ 404 ให้สลับไปโมเดลถัดไปทันที
   for (const model of uniqueModels) {
+    const remaining = deadline - Date.now();
+    if (remaining < 2000) {
+      lastErrorText = `หมดเวลาระหว่างรอ Gemini (ลองถึงก่อน ${model})`;
+      break;
+    }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(Math.min(8000, remaining)),
       });
 
       if (res.ok) {
@@ -203,6 +210,10 @@ Return strictly a JSON object with this structure:
   }
 
   // หากลองทุกโมเดลแล้วยังไม่สำเร็จ ให้ลองดึงโมเดลที่มีในบัญชีจริงแล้วเรียกทันที
+  // เวลาไม่พอสำหรับการค้นหารุ่นอื่น ให้แจ้ง error เลย (ดีกว่าถูกตัดเงียบๆ)
+  if (!successRawText && deadline - Date.now() < 6000) {
+    throw new Error(`Gemini ตอบไม่ทันเวลา: ${lastErrorText}`);
+  }
   if (!successRawText) {
     const available = await fetchSupportedModels(apiKey);
     const fallbackModel =
@@ -219,6 +230,7 @@ Return strictly a JSON object with this structure:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(Math.max(1000, deadline - Date.now())),
       });
       if (res.ok) {
         const data: any = await res.json();

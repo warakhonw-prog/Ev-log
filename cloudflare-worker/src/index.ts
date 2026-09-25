@@ -606,48 +606,98 @@ export default {
   },
 };
 
+// waitUntil ของ Worker ทำงานต่อได้ราว 30 วินาทีหลังตอบ LINE ถ้าเกินจะถูกตัดทิ้งโดยไม่มีการตอบกลับ
+// จึงตั้งงบเวลาไว้ต่ำกว่านั้น: Gemini ลองได้ถึง ~18 วินาที และตอบผู้ใช้ไม่เกิน 24 วินาทีเสมอ
+const IMAGE_BUDGET_MS = 24000;
+const GEMINI_BUDGET_MS = 18000;
+
 /**
  * ประมวลผลรูปภาพใน Background ผ่าน Cloudflare Worker waitUntil
  */
 async function handleImageEvent(event: any, env: Env): Promise<void> {
-  const replyToken = event.replyToken;
+  const startedAt = Date.now();
+  let replied = false;
+  // ตอบได้ครั้งเดียว (reply token ใช้ได้ครั้งเดียว และกันการตอบซ้ำหลังตัวกันเวลาทำงาน)
+  const reply = async (messages: any[]): Promise<void> => {
+    if (replied) return;
+    replied = true;
+    await replyLineMessage(event.replyToken, messages, env.LINE_CHANNEL_ACCESS_TOKEN);
+  };
+
+  // แสดงจุดกำลังพิมพ์ทันที ผู้ใช้จะรู้ว่าบอทกำลังประมวลผล (เฉพาะแชท 1:1)
+  if (event.source?.type === "user") {
+    await showLineLoading(event.source.userId, env.LINE_CHANNEL_ACCESS_TOKEN, 30);
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const watchdog = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), IMAGE_BUDGET_MS);
+  });
+  const outcome = await Promise.race([
+    processImageEvent(event, env, startedAt, reply).then(() => "done" as const),
+    watchdog,
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
+
+  if (outcome === "timeout" && !replied) {
+    console.error(`[Image] exceeded ${IMAGE_BUDGET_MS} ms budget, replying before waitUntil is cut off`);
+    try {
+      await reply([
+        {
+          type: "text",
+          text:
+            "⏳ ประมวลผลรูปนานเกินไป (Gemini หรือ Google Sheets ตอบช้า)\n" +
+            "ตรวจในแดชบอร์ดก่อนว่ารายการถูกบันทึกหรือยัง ถ้ายังไม่มี ให้ส่งรูปใหม่อีกครั้ง\n" +
+            "https://ev-log-bot.eb-book.workers.dev/",
+        },
+      ]);
+    } catch (e) {
+      console.error("Failed to send timeout reply to LINE:", e);
+    }
+  }
+}
+
+async function processImageEvent(
+  event: any,
+  env: Env,
+  startedAt: number,
+  reply: (messages: any[]) => Promise<void>
+): Promise<void> {
   const messageId = event.message.id;
 
   try {
     console.log(`[1/4] Fetching image from LINE messageId: ${messageId}`);
     const imageBase64 = await fetchLineImageBase64(messageId, env.LINE_CHANNEL_ACCESS_TOKEN);
 
+    // งานที่ไม่ต้องรอผล Gemini เริ่มพร้อมกันเลย: อัปโหลด Drive และอ่านรถ/ชื่อผู้ส่ง
+    const folderId = env.GOOGLE_DRIVE_FOLDER_ID || "1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e";
+    const nowStr = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `EV_Log_${nowStr}_${messageId.slice(-6)}.jpg`;
+    const drivePromise: Promise<string | null> = (async () => {
+      try {
+        console.log(`[Google Drive] Uploading image: ${filename} to folder: ${folderId}...`);
+        const driveRes = await uploadImageToGoogleDrive(imageBase64, filename, folderId, env);
+        if (driveRes) {
+          console.log(`[Google Drive] Uploaded successfully: ${driveRes.webViewLink}`);
+          return driveRes.webViewLink;
+        }
+      } catch (dErr: any) {
+        console.warn("[Google Drive] Upload skipped or failed:", dErr?.message || dErr);
+      }
+      return null;
+    })();
+    const extPromise = lineRowExt(event, env);
+
     console.log(`[2/4] Sending image to Gemini Vision API...`);
-    const analysis = await analyzeEVImageWithGemini(imageBase64, env);
-    console.log(`[2/4] Gemini extraction completed: type=${analysis.type}`);
+    const analysis = await analyzeEVImageWithGemini(imageBase64, env, "image/jpeg", startedAt + GEMINI_BUDGET_MS);
+    console.log(`[2/4] Gemini extraction completed: type=${analysis.type} (${Date.now() - startedAt} ms)`);
 
     let replyMessageText = "";
     let sheetStatus = "✅ บันทึกลง Google Sheets แล้ว";
-
-    // อัปโหลดภาพเข้า Google Drive โฟลเดอร์ที่กำหนด
-    const folderId = env.GOOGLE_DRIVE_FOLDER_ID || "1MQJN7bk8GNUyxdfH4rECRwrR7gPeYE-e";
-    const nowStr = new Date().toISOString().replace(/[:.]/g, "-");
     const isCharging = analysis.type === "charging" && !!analysis.charging_data;
-    const filename = isCharging
-      ? `EV_Charge_${nowStr}_${messageId.slice(-6)}.jpg`
-      : `EV_Trip_${nowStr}_${messageId.slice(-6)}.jpg`;
-
-    let driveLink: string | null = null;
-    try {
-      console.log(`[Google Drive] Uploading image: ${filename} to folder: ${folderId}...`);
-      const driveRes = await uploadImageToGoogleDrive(imageBase64, filename, folderId, env);
-      if (driveRes) {
-        driveLink = driveRes.webViewLink;
-        console.log(`[Google Drive] Uploaded successfully: ${driveLink}`);
-      }
-    } catch (dErr: any) {
-      console.warn("[Google Drive] Upload skipped or failed:", dErr?.message || dErr);
-    }
-
-    const ext = await lineRowExt(event, env);
+    const [driveLink, ext] = await Promise.all([drivePromise, extPromise]);
 
     let flexMessage: any;
-
     if (isCharging && analysis.charging_data) {
       const record = buildChargingRecord(analysis.charging_data, env);
       if (driveLink) {
@@ -696,37 +746,21 @@ async function handleImageEvent(event: any, env: Env): Promise<void> {
       flexMessage = buildTripFlex(record, sheetStatus, driveLink);
     }
 
-    console.log(`[4/4] Replying to LINE user with Interactive Flex Message...`);
+    console.log(`[4/4] Replying to LINE user with Interactive Flex Message... (${Date.now() - startedAt} ms)`);
     try {
-      await replyLineMessage(
-        replyToken,
-        [flexMessage],
-        env.LINE_CHANNEL_ACCESS_TOKEN
-      );
+      await reply([flexMessage]);
       console.log(`[4/4] Flex message reply sent successfully!`);
     } catch (flexErr) {
       console.warn("Flex message failed, falling back to text message:", flexErr);
-      await replyLineMessage(
-        replyToken,
-        [{ type: "text", text: replyMessageText }],
-        env.LINE_CHANNEL_ACCESS_TOKEN
-      );
+      // reply token ถูกใช้ไปแล้วถ้า LINE ปฏิเสธการ์ด จึงส่งข้อความสำรองผ่าน replyLineMessage ตรงๆ
+      await replyLineMessage(event.replyToken, [{ type: "text", text: replyMessageText }], env.LINE_CHANNEL_ACCESS_TOKEN);
       console.log(`[4/4] Fallback text message sent successfully!`);
     }
 
   } catch (err: any) {
     console.error("Error processing image event:", err);
     try {
-      await replyLineMessage(
-        replyToken,
-        [
-          {
-            type: "text",
-            text: `⚠️ เกิดข้อผิดพลาดในการประมวลผลภาพ:\n${err?.message || err}`,
-          },
-        ],
-        env.LINE_CHANNEL_ACCESS_TOKEN
-      );
+      await reply([{ type: "text", text: `⚠️ เกิดข้อผิดพลาดในการประมวลผลภาพ:\n${err?.message || err}` }]);
     } catch (e) {
       console.error("Failed to send error reply to LINE:", e);
     }
