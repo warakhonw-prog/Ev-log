@@ -8,7 +8,9 @@ import { AdminRecord, passwordVersion, readAdmins } from "./admins";
 // เปลี่ยน DASHBOARD_TOKEN = session เดิมทั้งหมดใช้ไม่ได้ทันที · เปลี่ยนรหัสของบัญชีใด = session ของบัญชีนั้นใช้ไม่ได้
 
 const COOKIE_NAME = "evlog_session";
-const SESSION_TTL_SEC = 30 * 24 * 60 * 60; // 30 วัน
+// "จดจำการเข้าสู่ระบบ": cookie ถาวร 90 วัน · ไม่ติ๊ก: cookie ชั่วคราว (หายเมื่อปิดเบราว์เซอร์) และหมดอายุใน 12 ชั่วโมง
+const REMEMBER_TTL_SEC = 90 * 24 * 60 * 60;
+const SHORT_TTL_SEC = 12 * 60 * 60;
 
 const encoder = new TextEncoder();
 
@@ -140,12 +142,21 @@ export async function currentUser(request: Request, env: Env): Promise<string | 
   return session ? (session.kind === "user" ? session.username : "token") : null;
 }
 
-export async function buildSessionCookie(env: Env, admin?: AdminRecord): Promise<string> {
-  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SEC;
+/** session ปัจจุบันเป็นแบบ "จดจำ" หรือไม่ (ดูจากวันหมดอายุใน cookie) ใช้ตอนออก cookie ใหม่ให้คงแบบเดิม */
+export function isRememberedSession(request: Request): boolean {
+  const raw = getCookie(request, COOKIE_NAME);
+  const exp = raw ? parseInt(raw.split(".")[0], 10) : 0;
+  return exp - Math.floor(Date.now() / 1000) > SHORT_TTL_SEC;
+}
+
+export async function buildSessionCookie(env: Env, admin?: AdminRecord, remember = false): Promise<string> {
+  const ttl = remember ? REMEMBER_TTL_SEC : SHORT_TTL_SEC;
+  const exp = Math.floor(Date.now() / 1000) + ttl;
   const value = admin
     ? `${exp}.${encodeUser(admin.username)}.${passwordVersion(admin)}.${await signSession(exp, env, { username: admin.username, ver: passwordVersion(admin) })}`
     : `${exp}.${await signSession(exp, env)}`;
-  return `${COOKIE_NAME}=${value}; Path=/; Max-Age=${SESSION_TTL_SEC}; HttpOnly; Secure; SameSite=Strict`;
+  // ไม่ใส่ Max-Age = session cookie ของเบราว์เซอร์ (ลบเมื่อปิดเบราว์เซอร์)
+  return `${COOKIE_NAME}=${value}; Path=/;${remember ? ` Max-Age=${ttl};` : ""} HttpOnly; Secure; SameSite=Strict`;
 }
 
 export function clearSessionCookie(): string {
@@ -180,6 +191,8 @@ export function renderLoginHtml(next: string, error?: string): string {
     button { margin-top: 16px; width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #0284c7; color: #fff; font-weight: bold; font-size: 15px; cursor: pointer; }
     .err { background: #7f1d1d; color: #fecaca; padding: 8px 10px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
     .hint { font-size: 12px; color: #94a3b8; margin: 6px 0 14px; }
+    .remember { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: #cbd5e1; cursor: pointer; }
+    .remember input { width: 16px; height: 16px; margin: 0; accent-color: #0284c7; }
   </style>
 </head>
 <body>
@@ -192,6 +205,7 @@ export function renderLoginHtml(next: string, error?: string): string {
     <div class="hint">เว้นว่างถ้าจะเข้าด้วย Dashboard token (ใช้ตั้งบัญชีครั้งแรกหรือกู้คืนเมื่อลืมรหัส)</div>
     <label for="token">รหัสผ่าน</label>
     <input id="token" name="token" type="password" autocomplete="current-password" required>
+    <label class="remember"><input type="checkbox" name="remember" value="1"> จดจำการเข้าสู่ระบบในเครื่องนี้ (90 วัน)</label>
     <input type="hidden" name="next" value="${escapeHtml(next)}">
     <button type="submit">เข้าสู่ระบบ</button>
   </form>

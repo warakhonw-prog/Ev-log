@@ -54,6 +54,7 @@ import {
   safeNextPath,
   renderLoginHtml,
   currentUser,
+  isRememberedSession,
 } from "./auth";
 
 export default {
@@ -105,6 +106,7 @@ export default {
       const form = await request.formData().catch(() => null);
       const token = (form?.get("token") || "").toString();
       const username = normalizeUsername(form?.get("username"));
+      const remember = form?.get("remember") === "1";
       const next = safeNextPath((form?.get("next") || "").toString());
       if (!isAuthConfigured(env)) {
         return new Response(renderLoginHtml(next, "ยังไม่ได้ตั้งค่า DASHBOARD_TOKEN บนเซิร์ฟเวอร์"), {
@@ -131,7 +133,7 @@ export default {
         }
         return new Response(null, {
           status: 303,
-          headers: { Location: next, "Set-Cookie": await buildSessionCookie(env, result.admin), "Cache-Control": "no-store" },
+          headers: { Location: next, "Set-Cookie": await buildSessionCookie(env, result.admin, remember), "Cache-Control": "no-store" },
         });
       }
       if (!(await checkToken(token, env))) {
@@ -139,7 +141,7 @@ export default {
       }
       return new Response(null, {
         status: 303,
-        headers: { Location: next, "Set-Cookie": await buildSessionCookie(env), "Cache-Control": "no-store" },
+        headers: { Location: next, "Set-Cookie": await buildSessionCookie(env, undefined, remember), "Cache-Control": "no-store" },
       });
     }
 
@@ -388,7 +390,7 @@ export default {
           const saved = await setAdminPassword(body.username, (body.password || "").toString(), env);
           const headers: Record<string, string> = { ...writeHeaders };
           // เปลี่ยนรหัสของตัวเอง: ออก cookie ใหม่ให้เลย ไม่ต้อง login ซ้ำ
-          if (me === saved.username) headers["Set-Cookie"] = await buildSessionCookie(env, saved);
+          if (me === saved.username) headers["Set-Cookie"] = await buildSessionCookie(env, saved, isRememberedSession(request));
           return new Response(JSON.stringify({ ok: true, admins: summarize(await readAdmins(env)) }), { headers });
         }
         const target = normalizeUsername(url.searchParams.get("username"));
