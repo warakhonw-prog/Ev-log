@@ -3278,7 +3278,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
             '<div class="form-group"><label>SOC สิ้นสุด (%)</label><input type="number" class="form-control mono" name="socEnd" id="tripSocEnd" min="0" max="100" placeholder="เช่น ' + Math.max(0, lastSoc - 4) + '"><span class="form-hint">ระดับแบตเมื่อถึงที่หมาย</span></div>' +
           '</div>' +
           '<div class="form-grid" style="margin-top:14px;">' +
-            '<div class="form-group"><label>อัตราสิ้นเปลืองเฉลี่ย (Wh/km)</label><input type="number" step="0.1" class="form-control mono" name="avgConsumption" id="tripAvgConsumption" placeholder="เช่น 14.5"><span class="form-hint">Wh/km หรือคำนวณจาก SOC / ระยะทาง</span></div>' +
+            '<div class="form-group"><label>อัตราสิ้นเปลืองจากหน้าจอรถ (kWh/100km)</label><input type="number" step="0.1" min="0" class="form-control mono" name="avgConsumption" id="tripAvgConsumption" placeholder="เช่น 14.5"><span class="form-hint" id="tripConsHint">ใส่ค่าจากหน้าจอทริปของรถจะแม่นที่สุด · ถ้าว่างจะประมาณจาก % แบต</span></div>' +
             '<div class="form-group"><label>พลังงานที่ใช้ (kWh) *</label><input type="number" step="0.01" class="form-control mono" name="energyKwh" id="tripEnergyKwh" required><span class="form-hint" id="tripKwhHint">พลังงานสุทธิที่ใช้ไป</span></div>' +
           '</div>' +
           '<div class="form-group" style="margin-top:14px;"><label>💰 ค่าไฟเฉลี่ยในการเดินทาง (฿) *</label><input type="number" step="0.01" class="form-control mono" name="costNetThb" id="tripCostNetThb" required><span class="form-hint" id="tripCostHint">คำนวณจากพลังงาน × อัตราค่าไฟ ' + state.unitRate.toFixed(2) + ' ฿/kWh</span></div>' +
@@ -4575,7 +4575,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       }
       map[d].trips += 1;
       map[d].km += (r.km || 0);
-      map[d].mins += (r.mins || 0);
+      map[d].mins += (r.min || 0);
       map[d].kwh += (r.kwh || 0);
       map[d].cost += (r.net || 0);
     });
@@ -4623,7 +4623,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       }
       map[ym].trips += 1;
       map[ym].km += (r.km || 0);
-      map[ym].mins += (r.mins || 0);
+      map[ym].mins += (r.min || 0);
       map[ym].kwh += (r.kwh || 0);
       map[ym].cost += (r.net || 0);
     });
@@ -4671,7 +4671,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       }
       map[y].trips += 1;
       map[y].km += (r.km || 0);
-      map[y].mins += (r.mins || 0);
+      map[y].mins += (r.min || 0);
       map[y].kwh += (r.kwh || 0);
       map[y].cost += (r.net || 0);
     });
@@ -5453,6 +5453,22 @@ window.__INITIAL_VIEW__ = "${initialTab}";
       var kwhHint = document.getElementById("tripKwhHint");
       var costHint = document.getElementById("tripCostHint");
 
+      var consHint = document.getElementById("tripConsHint");
+      // ช่องที่ผู้ใช้พิมพ์เองจะไม่ถูกเขียนทับด้วยค่าที่คำนวณอัตโนมัติ (เดิมเติมค่าครั้งเดียวระหว่างพิมพ์ระยะทางไม่เสร็จ แล้วค้าง)
+      var consTouched = false;
+      var kwhTouched = false;
+
+      // ความจุสำหรับประมาณพลังงานจาก % แบต: ใช้ความจุใช้งานจริงที่ระบบประเมินได้ ถ้ายังไม่มีใช้สเปกรถ
+      var tripUsableCap = function() {
+        var sel = document.getElementById("tripVehicleSelect");
+        var byVehicle = (state.payload.data && state.payload.data.batteryByVehicle) || {};
+        var bat = sel ? byVehicle[sel.value] : null;
+        if (bat && bat.capacity && bat.capacity.estimateKwh && bat.capacity.confidence !== "none") {
+          return { kwh: bat.capacity.estimateKwh, label: "ความจุใช้งานจริง" };
+        }
+        return { kwh: capForSelect("tripVehicleSelect"), label: "ความจุสเปก" };
+      };
+
       var recalcTrip = function(source) {
         var o0 = parseFloat(odo0In.value);
         var o1 = parseFloat(odo1In.value);
@@ -5460,6 +5476,8 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         var s0 = parseFloat(s0In.value);
         var s1 = parseFloat(s1In.value);
         var cons = parseFloat(consIn.value);
+        if (source === "cons") consTouched = consIn.value !== "";
+        if (source === "kwh") kwhTouched = kwhIn.value !== "";
 
         if (source === "odo" && !isNaN(o0) && !isNaN(o1) && o1 >= o0) {
           d = Math.round((o1 - o0) * 10) / 10;
@@ -5471,20 +5489,33 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         }
 
         var kwh = 0;
-        if (!isNaN(s0) && !isNaN(s1) && s0 > s1) {
+        if (kwhTouched) {
+          // ผู้ใช้กรอกพลังงานเอง: ใช้ค่านั้น และเติมอัตราสิ้นเปลืองให้ถ้ายังไม่ได้กรอก
+          kwh = parseFloat(kwhIn.value) || 0;
+          if (kwhHint) kwhHint.innerText = "ใช้ค่าที่กรอกเอง";
+          if (!consTouched && d > 0 && kwh > 0) consIn.value = (kwh * 100 / d).toFixed(1);
+        } else if (consTouched && cons > 0 && d > 0) {
+          // ค่าจากหน้าจอทริปของรถแม่นที่สุด จึงใช้ก่อน % แบต
+          kwh = (d * cons) / 100;
+          kwhIn.value = kwh.toFixed(2);
+          if (kwhHint) kwhHint.innerText = "คำนวณจาก " + d + " km × " + cons + " kWh/100km ÷ 100 (ค่าจากหน้าจอรถ)";
+        } else if (!isNaN(s0) && !isNaN(s1) && s0 > s1) {
           var socDiff = s0 - s1;
-          var tripCap = capForSelect("tripVehicleSelect");
-          kwh = (socDiff / 100) * tripCap;
+          var cap = tripUsableCap();
+          kwh = (socDiff / 100) * cap.kwh;
           kwhIn.value = kwh.toFixed(2);
-          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + s0 + " - " + s1 + ")% × " + tripCap.toFixed(1) + " kWh";
-          if (d > 0 && isNaN(cons)) {
-            cons = (kwh * 1000) / d;
-            consIn.value = cons.toFixed(1);
-          }
-        } else if (!isNaN(cons) && cons > 0 && d > 0) {
-          kwh = (d * cons) / 1000;
-          kwhIn.value = kwh.toFixed(2);
-          if (kwhHint) kwhHint.innerText = "คำนวณจาก (" + d + " km × " + cons + " Wh/km) ÷ 1,000";
+          if (kwhHint) kwhHint.innerText = "ประมาณจาก % แบต (" + socDiff + "% × " + cap.label + " " + cap.kwh.toFixed(1) + " kWh) · ทริปสั้นอาจคลาดมาก ใส่อัตราสิ้นเปลืองจากหน้าจอรถจะแม่นกว่า";
+          if (!consTouched) consIn.value = d > 0 ? (kwh * 100 / d).toFixed(1) : "";
+        } else if (!consTouched) {
+          consIn.value = "";
+        }
+
+        var consNow = parseFloat(consIn.value);
+        if (consHint) {
+          consHint.innerText = consNow > 0 && (consNow < 5 || consNow > 40)
+            ? "⚠️ " + consNow + " kWh/100km ผิดปกติ (ปกติอยู่ราว 10-25) ตรวจระยะทางและค่าที่กรอก"
+            : (consTouched ? "ค่าจากหน้าจอรถ" : "ใส่ค่าจากหน้าจอทริปของรถจะแม่นที่สุด · ถ้าว่างจะประมาณจาก % แบต");
+          consHint.style.color = consNow > 0 && (consNow < 5 || consNow > 40) ? "var(--rose)" : "";
         }
 
         var currentKwh = parseFloat(kwhIn.value) || kwh;
@@ -5505,6 +5536,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
 
       formTrip.onsubmit = async function(e) {
         e.preventDefault();
+        var consCheck = parseFloat(consIn.value);
+        if (consCheck > 0 && (consCheck < 5 || consCheck > 40) &&
+            !confirm("อัตราสิ้นเปลือง " + consCheck + " kWh/100km ดูผิดปกติ (ปกติราว 10-25) ต้องการบันทึกต่อหรือไม่?")) {
+          return;
+        }
         var btnSubmit = document.getElementById("btnSubmitAddTrip");
         if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.innerText = "กำลังบันทึกข้อมูล..."; }
 
