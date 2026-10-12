@@ -44,10 +44,10 @@ export async function analyzeEVImageWithGemini(
     throw new Error("GEMINI_API_KEY is not configured in environment");
   }
 
-  // โมเดลที่ Google แนะนำสำหรับ API Key นี้ (gemini-3.6-flash, gemini-3.1-flash-lite)
+  // Flash Lite ก่อน: เร็ว (~2-3 วิ) โควตา 500 ครั้ง/วัน และไม่ค่อยติด 503 · 3.6 Flash มักตอบ 503 "high demand" และได้แค่ 20 ครั้ง/วัน
   const candidateModels: string[] = [
-    "gemini-3.6-flash",
     "gemini-3.1-flash-lite",
+    "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.8-flash",
     "gemini-flash-latest",
@@ -152,7 +152,8 @@ Return strictly a JSON object with this structure:
   let successRawText = "";
 
   // ลองยิงแต่ละโมเดล ถ้าเจอ 404 ให้สลับไปโมเดลถัดไปทันที
-  for (const model of uniqueModels) {
+  // โมเดลแรกได้เวลามากสุด 10 วิ ตัวสำรองได้ 6 วิ (ทั้งหมดไม่เกิน deadline)
+  for (const [index, model] of uniqueModels.entries()) {
     const remaining = deadline - Date.now();
     if (remaining < 2000) {
       lastErrorText = `หมดเวลาระหว่างรอ Gemini (ลองถึงก่อน ${model})`;
@@ -164,7 +165,7 @@ Return strictly a JSON object with this structure:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(Math.min(8000, remaining)),
+        signal: AbortSignal.timeout(Math.min(index === 0 ? 10000 : 6000, remaining)),
       });
 
       if (res.ok) {
