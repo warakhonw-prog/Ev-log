@@ -4446,6 +4446,11 @@ window.__INITIAL_VIEW__ = "${initialTab}";
     return isNaN(yr) ? y : (yr + 543) + " (" + y + ")";
   }
 
+  // ค่าไฟตามที่บันทึกในชีต: ทริปถูกคิดใหม่ตามราคาไฟจริงในแบต (r.net) ส่วนค่าเดิมอยู่ที่ r.netSheet
+  function sheetNet(r) {
+    return r.netSheet != null ? r.netSheet : r.net;
+  }
+
   function isDcChargeRecord(r) {
     var text = ((r.note || "") + " " + (r.kind || "")).toLowerCase();
     return text.includes("dc") || text.includes("เร็ว") || text.includes("fast") ||
@@ -5192,7 +5197,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
         '<td>' + (r.iso || "-") + '</td>' +
         '<td class="mono">' + (r.time || "-") + '</td>' +
         '<td class="mono">' + (r.kwh ? fmtNum(r.kwh, 2) + ' kWh' : '-') + '</td>' +
-        '<td class="mono">' + (r.net ? fmtNum(r.net, 2) + ' ฿' : '-') + '</td>' +
+        '<td class="mono">' + (sheetNet(r) ? fmtNum(sheetNet(r), 2) + ' ฿' : '-') + '</td>' +
         '<td>' + (r.note || "-") + '</td>' +
         '<td><div style="display:flex;gap:6px;">' +
           '<button class="btn btn-secondary btn-sm" data-action="edit" data-row="' + r.sheetRowIndex + '">แก้ไข</button>' +
@@ -5722,7 +5727,7 @@ window.__INITIAL_VIEW__ = "${initialTab}";
             '</div>' +
             '<div class="form-grid">' +
               '<div class="form-group"><label>พลังงาน (kWh)</label><input type="number" step="0.01" class="form-control" name="energyKwh" value="' + (record.kwh || 0) + '" required></div>' +
-              '<div class="form-group"><label>ค่าไฟสุทธิ (฿)</label><input type="number" step="0.01" class="form-control" name="costNetThb" value="' + (record.net || 0) + '" required></div>' +
+              '<div class="form-group"><label>ค่าไฟสุทธิ (฿)</label><input type="number" step="0.01" class="form-control" name="costNetThb" value="' + (record.netSheet != null ? record.netSheet : (record.net || 0)) + '" required></div>' +
             '</div>' +
             '<div class="form-grid">' +
               '<div class="form-group"><label>ระยะทาง (km)</label><input type="number" step="0.1" class="form-control" name="distanceKm" value="' + (record.km || 0) + '"></div>' +

@@ -1,3 +1,4 @@
+import { applyActualTripCost } from "./tripCost";
 import { Env } from "./types";
 import { analyzeBattery, BatteryAnalysis } from "./battery";
 import { analyzeTou, TouAnalysis } from "./tou";
@@ -332,6 +333,9 @@ export async function fetchDashboardDataFromSheets(env: Env): Promise<DashboardP
 
     const defaultRate = parseFloat(env.ELECTRICITY_RATE_THB || "4.90");
     const batteryCap = (vehicles.find((v) => v.id === defVehicle) || vehicles[0]).batteryKwh;
+
+    // ค่าเดินทางตามราคาไฟจริงในแบต (เฉลี่ยการชาร์จล่าสุด ~1 แบต) แทนอัตราเดียวในชีต · ค่าเดิมอยู่ที่ r.netSheet
+    applyActualTripCost(rows, (vid) => (vehicles.find((v) => v.id === vid) || { batteryKwh: batteryCap }).batteryKwh);
     const fromDate = rows.length > 0 ? rows[0].iso : "";
     const toDate = rows.length > 0 ? rows[rows.length - 1].iso : "";
 

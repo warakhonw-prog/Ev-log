@@ -139,7 +139,7 @@ export function buildDataContext(payload: DashboardPayload): string {
   }
 
   lines.push("");
-  lines.push("รายการ (kind=trip คือการเดินทาง, charge คือการชาร์จ; cons = kWh/100km ถ้า ≤ 50 หรือ Wh/km ถ้า > 50; kwh ของ trip = พลังงานที่ใช้, ของ charge = พลังงานที่ชาร์จ; thb = ค่าไฟ):");
+  lines.push("รายการ (kind=trip คือการเดินทาง, charge คือการชาร์จ; cons = kWh/100km ถ้า ≤ 50 หรือ Wh/km ถ้า > 50; kwh ของ trip = พลังงานที่ใช้, ของ charge = พลังงานที่ชาร์จ; thb = ค่าไฟ โดย thb ของ trip คิดจากราคาไฟเฉลี่ยของการชาร์จจริงล่าสุดประมาณ 1 แบตก่อนทริปนั้น ไม่ใช่อัตราค่าไฟบ้านอัตราเดียว):");
   lines.push("date,time,kind,vehicle,driver,purpose,odo_start,odo_end,km,min,cons,soc_start,soc_end,kwh,thb,note");
   for (const r of rows) {
     lines.push(

@@ -22,7 +22,7 @@ export interface StatQuery {
   rangeText: string;
 }
 
-type Row = DashboardRow & { purpose?: string; vehicle?: string; driver?: string };
+type Row = DashboardRow & { purpose?: string; vehicle?: string; driver?: string; netSheet?: number };
 
 const DASHBOARD_URL = "https://ev-log-bot.eb-book.workers.dev/";
 // เทียบรถน้ำมัน: ค่าเดียวกับรายงานประจำสัปดาห์/เดือน (reports.ts)
@@ -377,12 +377,14 @@ export function buildTripStatBubble(rows: Row[], q: StatQuery): { bubble: any; s
   const title = "🚗 สรุปค่าเดินทาง";
   const subtitle = `${q.label} · ${q.rangeText}`;
 
-  let km = 0, min = 0, kwh = 0, thb = 0, whSum = 0, whKm = 0, bizKm = 0, bizThb = 0;
+  let km = 0, min = 0, kwh = 0, thb = 0, whSum = 0, whKm = 0, bizKm = 0, bizThb = 0, flatThb = 0;
   for (const r of trips) {
     km += r.km || 0;
     min += r.min || 0;
     kwh += r.kwh || 0;
     thb += r.net || 0;
+    // ค่าในชีต = คิดที่อัตราค่าไฟบ้านอัตราเดียว (r.net ถูกคิดใหม่ตามราคาไฟจริงในแบตใน tripCost.ts)
+    flatThb += r.netSheet ?? r.net ?? 0;
     const cons = r.cons || 0;
     const wh = cons > 50 ? cons : cons * 10;
     if (wh > 0 && r.km > 0) {
@@ -411,7 +413,9 @@ export function buildTripStatBubble(rows: Row[], q: StatQuery): { bubble: any; s
     infoRow("⏱️ เวลาขับรวม", min > 0 ? duration(min) : "-"),
     infoRow("⚡ อัตรากินไฟเฉลี่ย", whKm > 0 ? `${Math.round(whSum / whKm)} Wh/km` : "-"),
     infoRow("🔌 พลังงานที่ใช้", `${num(kwh, 1)} kWh`),
+    infoRow("💱 ราคาไฟเฉลี่ยในแบต", kwh > 0 ? `${baht(thb / kwh)}/kWh` : "-"),
     infoRow("💰 ต้นทุนต่อ km", km > 0 ? `${baht(thb / km)}/km` : "-"),
+    infoRow("🏠 ถ้าชาร์จบ้านทั้งหมด", baht(flatThb)),
     infoRow("⛽ ถ้าเป็นรถน้ำมัน", `≈ ${baht(gasThb)}`),
     infoRow("💚 ประหยัดไป", `≈ ${baht(Math.max(0, gasThb - thb))}`),
   ];
