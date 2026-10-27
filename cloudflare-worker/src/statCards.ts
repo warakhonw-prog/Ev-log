@@ -176,7 +176,7 @@ function infoRow(name: string, val: string): any {
     layout: "baseline",
     spacing: "sm",
     contents: [
-      { type: "text", text: name, color: COLOR.muted, size: "xs", flex: 5 },
+      { type: "text", text: name, color: COLOR.muted, size: "xs", flex: 5, wrap: true },
       { type: "text", text: val, color: COLOR.text, size: "xs", flex: 7, weight: "bold", align: "end", wrap: true },
     ],
   };
@@ -413,9 +413,9 @@ export function buildTripStatBubble(rows: Row[], q: StatQuery): { bubble: any; s
     infoRow("⏱️ เวลาขับรวม", min > 0 ? duration(min) : "-"),
     infoRow("⚡ อัตรากินไฟเฉลี่ย", whKm > 0 ? `${Math.round(whSum / whKm)} Wh/km` : "-"),
     infoRow("🔌 พลังงานที่ใช้", `${num(kwh, 1)} kWh`),
-    infoRow("💱 ราคาไฟเฉลี่ยในแบต", kwh > 0 ? `${baht(thb / kwh)}/kWh` : "-"),
+    infoRow("💱 ราคาไฟเฉลี่ย", kwh > 0 ? `${baht(thb / kwh)}/kWh` : "-"),
     infoRow("💰 ต้นทุนต่อ km", km > 0 ? `${baht(thb / km)}/km` : "-"),
-    infoRow("🏠 ถ้าชาร์จบ้านทั้งหมด", baht(flatThb)),
+    infoRow("🏠 ถ้าคิดเรทบ้าน", baht(flatThb)),
     infoRow("⛽ ถ้าเป็นรถน้ำมัน", `≈ ${baht(gasThb)}`),
     infoRow("💚 ประหยัดไป", `≈ ${baht(Math.max(0, gasThb - thb))}`),
   ];
