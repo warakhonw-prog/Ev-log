@@ -66,11 +66,22 @@ export function buildDataContext(payload: DashboardPayload): string {
   lines.push(`ช่วงข้อมูล: ${meta.from} ถึง ${meta.to} (${data.rows.length} แถว${data.rows.length > rows.length ? `, ส่งเฉพาะ ${rows.length} แถวล่าสุด` : ""})`);
 
   // สรุปรายเดือน (คำนวณให้ก่อน เพื่อให้ตัวเลขรวมแม่นยำกว่าการให้โมเดลบวกเอง)
-  const months: Record<string, { km: number; tripKwh: number; trips: number; charges: number; chargeKwh: number; chargeThb: number; dcThb: number; bizKm: number }> = {};
+  type MonthTotals = {
+    km: number; tripKwh: number; trips: number; bizKm: number;
+    charges: number; chargeKwh: number; chargeThb: number;
+    acCharges: number; acKwh: number; acThb: number;
+    dcCharges: number; dcKwh: number; dcThb: number;
+  };
+  const months: Record<string, MonthTotals> = {};
   for (const r of data.rows) {
     const m = (r.iso || "").slice(0, 7);
     if (!m) continue;
-    const t = (months[m] ||= { km: 0, tripKwh: 0, trips: 0, charges: 0, chargeKwh: 0, chargeThb: 0, dcThb: 0, bizKm: 0 });
+    const t = (months[m] ||= {
+      km: 0, tripKwh: 0, trips: 0, bizKm: 0,
+      charges: 0, chargeKwh: 0, chargeThb: 0,
+      acCharges: 0, acKwh: 0, acThb: 0,
+      dcCharges: 0, dcKwh: 0, dcThb: 0,
+    });
     if (r.kind === "trip") {
       t.trips++;
       t.km += r.km || 0;
@@ -80,14 +91,31 @@ export function buildDataContext(payload: DashboardPayload): string {
       t.charges++;
       t.chargeKwh += r.kwh || 0;
       t.chargeThb += r.net || 0;
-      if (isDcCharge(r)) t.dcThb += r.net || 0;
+      // แยก AC/DC ด้วยกฎเดียวกับหน้า dashboard (isDcChargeRecord): ไม่ใช่ DC = AC ชาร์จบ้าน
+      if (isDcCharge(r)) {
+        t.dcCharges++;
+        t.dcKwh += r.kwh || 0;
+        t.dcThb += r.net || 0;
+      } else {
+        t.acCharges++;
+        t.acKwh += r.kwh || 0;
+        t.acThb += r.net || 0;
+      }
     }
   }
   lines.push("");
-  lines.push("สรุปรายเดือน (ทุกคัน): month,trips,km,trip_kWh,business_km,charges,charge_kWh,charge_THB,dc_THB");
+  lines.push("สรุปรายเดือน (ทุกคัน; ac_* = ชาร์จบ้าน AC, dc_* = ชาร์จนอกบ้าน DC, ac + dc = charge รวม):");
+  lines.push("month,trips,km,trip_kWh,business_km,charges,charge_kWh,charge_THB,ac_charges,ac_kWh,ac_THB,dc_charges,dc_kWh,dc_THB");
   for (const m of Object.keys(months).sort()) {
     const t = months[m];
-    lines.push([m, t.trips, t.km.toFixed(1), t.tripKwh.toFixed(2), t.bizKm.toFixed(1), t.charges, t.chargeKwh.toFixed(2), t.chargeThb.toFixed(2), t.dcThb.toFixed(2)].join(","));
+    lines.push(
+      [
+        m, t.trips, t.km.toFixed(1), t.tripKwh.toFixed(2), t.bizKm.toFixed(1),
+        t.charges, t.chargeKwh.toFixed(2), t.chargeThb.toFixed(2),
+        t.acCharges, t.acKwh.toFixed(2), t.acThb.toFixed(2),
+        t.dcCharges, t.dcKwh.toFixed(2), t.dcThb.toFixed(2),
+      ].join(",")
+    );
   }
 
   // สุขภาพแบต (ย่อ)
@@ -130,7 +158,7 @@ function systemPrompt(context: string, channel: "line" | "web"): string {
     "",
     "กติกา:",
     "1. คำถามเกี่ยวกับการเดินทาง การชาร์จ ค่าใช้จ่าย แบตเตอรี่ หรือรถของผู้ใช้ ให้ตอบจาก \"ข้อมูลของผู้ใช้\" ด้านล่างเท่านั้น ห้ามเดาตัวเลข ถ้าข้อมูลไม่พอให้บอกตรงๆ ว่าไม่มีข้อมูล",
-    "2. ตัวเลขรวมรายเดือนให้ใช้ตาราง \"สรุปรายเดือน\" ก่อน ถ้าต้องคำนวณเองให้คำนวณจากรายการอย่างระมัดระวัง และบอกช่วงวันที่ที่ใช้",
+    "2. ตัวเลขรวมรายเดือนให้ใช้ตาราง \"สรุปรายเดือน\" ก่อน (ถามค่าชาร์จ AC/ชาร์จบ้าน ใช้ ac_*, DC/ชาร์จนอกบ้าน ใช้ dc_*) ถ้าต้องคำนวณเองให้คำนวณจากรายการอย่างระมัดระวัง และบอกช่วงวันที่ที่ใช้",
     "3. คำถามเรื่องภายนอก (ราคาค่าไฟ/ค่า Ft ปัจจุบัน, สถานีชาร์จ, สเปกรถ, ข่าว) ให้ค้นเว็บด้วย Google Search และบอกว่าเป็นข้อมูลจากเว็บ",
     "4. ตอบเป็นภาษาไทย กระชับ ตรงคำถาม ใส่หน่วย (km, kWh, บาท) และปัดทศนิยมให้อ่านง่าย",
     channel === "line"
