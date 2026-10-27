@@ -184,11 +184,22 @@ function stationName(note: string): string {
 }
 
 /** ทริปที่ใช้คำนวณความจุได้: มีระยะทาง อัตรากินไฟสมเหตุสมผล และ SOC ต้น/ปลายครบ */
-function isCapacityTrip(r: DashboardRow): boolean {
+// ทริปที่พลังงานต่อ % แบตเกินความจุสเปกเท่านี้ ถือว่ามีการชาร์จระหว่างทางที่ไม่ได้แยกทริป (เช่น 27 ต.ค. 2026:
+// 325 km ใช้ 47.5 kWh แต่แบตลดแค่ 28% = 170 kWh ต่อ 100%) จึงไม่นำไปคิดความจุ
+const MAX_IMPLIED_CAPACITY_RATIO = 1.5;
+
+function isCapacityTrip(r: DashboardRow, nominalKwh: number): boolean {
   if (r.kind !== "trip" || !(r.km > 0) || r.km >= 600) return false;
   const whKm = consKwhPerKm(r.cons) * 1000;
   if (!(whKm >= 50 && whKm <= 400)) return false;
-  return r.s0 > 0 && r.s1 > 0 && r.s0 <= 100 && r.s0 >= r.s1;
+  if (!(r.s0 > 0 && r.s1 > 0 && r.s0 <= 100 && r.s0 >= r.s1)) return false;
+  const dropPct = r.s0 - r.s1;
+  if (dropPct > 0 && nominalKwh > 0) {
+    // เผื่อ % แบตที่ปัดเศษ 1% เพื่อไม่ตัดทริปสั้นที่ตัวเลขเพี้ยนเพราะการปัด (จะทำให้ค่าประเมินเอียง)
+    const impliedKwh = (r.km * consKwhPerKm(r.cons)) / ((dropPct + 1) / 100);
+    if (impliedKwh > nominalKwh * MAX_IMPLIED_CAPACITY_RATIO) return false;
+  }
+  return true;
 }
 
 function confidenceFor(socPct: number, trips: number): Confidence {
@@ -240,7 +251,7 @@ export function analyzeBattery(rows: DashboardRow[], opts: BatteryOptions): Batt
   }
 
   // ---------- 1. ความจุฝั่งการขับ + หน้าต่างแนวโน้ม ----------
-  const capTrips = rows.filter(isCapacityTrip);
+  const capTrips = rows.filter((r) => isCapacityTrip(r, opts.nominalKwh));
   let driveEnergy = 0;
   let driveSoc = 0;
   const windows: CapacityWindow[] = [];
