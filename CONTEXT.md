@@ -1,7 +1,7 @@
 # 🚗 CONTEXT.md - EV Log Hub System Architecture & Development Context
 
 > **เอกสารบริบททางเทคนิค (Context Document) สำหรับ AI Agent และนักพัฒนาเพื่อใช้ทำงานต่อในระบบได้ทันที**  
-> *วันที่อัปเดตล่าสุด:* 24 กันยายน 2026  
+> *วันที่อัปเดตล่าสุด:* 27 ตุลาคม 2026  
 > *ยานพาหนะหลักในระบบ:* XPENG G6 Standard Range (LFP Battery 68.5 kWh)  
 > *สเปกการคำนวณพื้นฐาน:* ค่าไฟ 4.90 ฿/หน่วย, ประสิทธิภาพชาร์จบ้าน 90% (Loss 10%), น้ำมันเทียบเคียง: รายงาน LINE (`reports.ts`) ใช้ 14 กม./ลิตร × 38 ฿ ส่วน Dashboard ใช้ค่าเริ่มต้น 16 กม./ลิตร × 38.5 ฿ (ปรับได้ในหน้าตั้งค่า)
 > *สถานะโครงการ:* **พัฒนาครบทั้ง 4 แผนใน ROADMAP แล้ว** (24 ก.ย. 2026) · Production version `ad6d703f` · เหลือเฉพาะรายการที่รอข้อมูลสะสมหรือรอมิเตอร์ TOU (ดูหัวข้อ 7)
@@ -31,6 +31,7 @@
 10. **Expense Export** (แผนที่ 4, `/reports`): รายงานเบิกจ่ายแยกงาน/ส่วนตัว เป็น Excel (.xlsx) และหน้าพิมพ์ PDF · LINE คำสั่ง "งาน"/"ส่วนตัว"
 11. **Auth**: API ที่แก้ข้อมูลต้องใช้ `DASHBOARD_TOKEN` (login ที่ `/login`)
 12. **Ask EV Log (AI Assistant)**: พิมพ์ถามได้ทั้งใน LINE และหน้า `/ask` ตอบจากข้อมูลชีต + ค้นเว็บด้วย Gemini Google Search (`src/assistant.ts`)
+13. **การ์ดสรุปค่าชาร์จ / ค่าเดินทางใน LINE** (`src/statCards.ts`): ถามยอดเช่น "ค่าชาร์จ ตุลาคม AC เท่าไร" ได้ Flex card ที่คำนวณจากชีตโดยตรง (ไม่ผ่าน AI)
 
 ---
 
@@ -101,6 +102,7 @@ D:\EV-LOG\
 │           expense.ts               # รายงานเบิกจ่าย (Excel + หน้าพิมพ์ PDF)
 │           xlsx.ts                  # ตัวสร้างไฟล์ .xlsx แบบไม่พึ่ง npm
 │           assistant.ts             # ผู้ช่วย AI: สรุปข้อมูลชีตเป็นบริบท + Gemini (google_search)
+│           statCards.ts             # แยกคำถามยอดค่าชาร์จ/ค่าเดินทาง + สร้าง Flex card สรุป
 │
 ├───config/                          # [Python Legacy]
 ├───models/                          # [Python Legacy]
@@ -269,6 +271,7 @@ export interface PeriodSummary {
 | **Multi-Car Fleet & Drivers** | ✅ เสร็จสมบูรณ์ | `src/fleet.ts`, `src/dashboardView.ts` | แท็บ Vehicles, ตัวเลือกรถ, เปรียบเทียบผู้ขับ (แผนที่ 4) |
 | **Expense Export (Excel/PDF)** | ✅ เสร็จสมบูรณ์ | `src/expense.ts`, `src/xlsx.ts` | `/api/export.xlsx`, `/report/expense` (แผนที่ 4) |
 | **Ask EV Log (AI Assistant)** | ✅ เสร็จสมบูรณ์ | `src/assistant.ts`, `src/index.ts`, `src/dashboardView.ts` | LINE (เฉพาะ `LINE_ALLOWED_USER_IDS`) + หน้า `/ask` (`POST /api/ask` ต้อง login) |
+| **การ์ดสรุปค่าชาร์จ/ค่าเดินทาง (LINE)** | ✅ เสร็จสมบูรณ์ | `src/statCards.ts`, `src/index.ts` | คำถามยอดรวมตอบเป็น Flex card จากชีตโดยตรง (27 ต.ค. 2026) |
 
 ### ข้อมูลระบบ Production ปัจจุบัน:
 - **Production Version**: `ad6d703f-82e7-4208-9aa1-e59b03571bed` (deploy 24 ก.ย. 2026 จาก commit `c7c9363`)
@@ -310,6 +313,16 @@ export interface PeriodSummary {
 - **LINE**: ข้อความที่ไม่ใช่คำสั่ง ("งาน"/"ส่วนตัว") และไม่ใช่คำทักทาย/วิธีใช้ = คำถาม ตอบเฉพาะแชท 1:1 ของ userId ที่อยู่ใน `LINE_ALLOWED_USER_IDS` (คั่นด้วย ,) หรือ `LINE_USER_ID` · ไม่ได้ตั้ง = ปิด (fail closed) และบอท reply รหัส userId ของผู้ถามเพื่อใช้ตั้งค่า · มี loading animation ระหว่างรอ
 - **โมเดล/โควตา**: ผู้ช่วยใช้ `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` (free tier ของ Flash Lite 500 ครั้ง/วัน) **ไม่ใช้ `GEMINI_MODEL`** เพราะ Gemini 3.6 Flash ได้แค่ 20 ครั้ง/วันและต้องเก็บไว้ให้การอ่านสลิป · ถ้าค้นเว็บไม่ได้ (429/400) จะลองใหม่แบบไม่มี `google_search` แล้วตอบจากข้อมูลชีต (`webSearch: false`) · error แสดงครบทุกรุ่นที่ลอง
 - **Dashboard**: หน้า `/ask` แชท (ประวัติเก็บในหน่วยความจำของหน้า ส่ง 8 ข้อความล่าสุดเป็น history) · `POST /api/ask` อยู่ใน auth gate เพราะเรียก AI มีค่าใช้จ่าย
+- **ตาราง "สรุปรายเดือน" ใน `buildDataContext`** มีคอลัมน์แยก `ac_charges, ac_kWh, ac_THB, dc_charges, dc_kWh, dc_THB` (แยกด้วย `isDcCharge` กฎเดียวกับ dashboard) · เดิมมีแค่ `dc_THB` ทำให้ AI ตอบว่า "ไม่มีข้อมูลแยก AC/DC" (แก้ 27 ต.ค. 2026) · ยอดที่ผู้ใช้ถามบ่อยควรคำนวณให้ในบริบทเสมอ อย่าให้โมเดลบวก/ลบเอง
+
+### 🧾 การ์ดสรุปค่าชาร์จ / ค่าเดินทางใน LINE (`src/statCards.ts`, เสร็จแล้ว 27 ต.ค. 2026)
+- **ลำดับใน `answerLineQuestionText` (index.ts)**: ตรวจสิทธิ์บัญชี LINE ก่อน (เหมือนผู้ช่วย AI) → `parseStatQuery(question)` ถ้าได้ผล = ตอบด้วย `buildStatFlexMessage(rows, q)` ไม่เรียก Gemini · ถ้าเป็น `null` = ส่งให้ `askEvAssistant` ตามเดิม
+- **`parseStatQuery`** เป็นคำถามการ์ดเมื่อ: มีหัวข้อ (ชาร์จ/ค่าไฟ/kWh = `charge`, เดินทาง/ทริป/วิ่ง/ขับ/ระยะทาง = `trip`, มีทั้งคู่ได้) + มีคำถามยอด (เท่าไร/กี่/สรุป/ยอด/รวม/ทั้งหมด/จ่าย) + ไม่มีคำของคำถามซับซ้อน (`COMPLEX_WORDS`: ไหน, ที่สุด, เทียบ, ทำไม, ft, งวด, หน่วยละ, ต่อเดือน, ต่อครั้ง ฯลฯ) + ยาวไม่เกิน 120 ตัว
+  - แยก AC (`ac`, บ้าน) / DC (`dc`, ด่วน, นอกบ้าน, สถานี, ตู้) · มีทั้งคู่หรือไม่ระบุ = `all`
+  - ช่วงเวลา: ชื่อเดือนไทยเต็ม/ย่อ (มี/ไม่มีจุด) หรืออังกฤษ + ปี ค.ศ./พ.ศ. (ไม่ระบุปีและเดือนยังมาไม่ถึง = ปีที่แล้ว), เดือนนี้/ที่แล้ว, สัปดาห์นี้/ที่แล้ว (เริ่มวันจันทร์), 7 วัน, วันนี้, เมื่อวาน, ปีนี้/ที่แล้ว, ทั้งหมด · ไม่ระบุ = เดือนนี้ · ใช้เวลาไทย (UTC+7)
+- **การ์ด**: ค่าชาร์จสีหัวตามประเภท (AC `#0d9488`, DC `#0284c7`, รวม `#4f46e5`) · ค่าเดินทางสี `#16a34a` (สีเดียวกับการ์ดบันทึกใน `line.ts`) · ถามทั้งสองหัวข้อ = carousel 2 ใบ · แสดงรายการล่าสุด ≤ 6 รายการ · ค่าเดินทาง = ผลรวม `net` ของแถว trip · เทียบน้ำมันใช้ 14 กม./ลิตร × 38 ฿ เท่ากับ `reports.ts`
+- **Fallback**: ถ้า LINE ปฏิเสธ Flex (reply error) จะส่ง `altText` เป็นข้อความธรรมดาแทน
+- **เพิ่มคำ/ช่วงเวลาใหม่**: แก้ regex ใน `statCards.ts` แล้วทดสอบทั้งคำถามที่ควรได้การ์ดและคำถามที่ควรไป AI (เช่น "ทริปไหนกินไฟที่สุด" ต้องได้ `null`)
 
 ### 🚗 แผนที่ 4: Multi-Car Fleet Management & Expense Export (เสร็จแล้ว)
 - [x] **Multi-Vehicle**: `fleet.ts` → แท็บ `Vehicles` (อ่าน `readVehicles`, บันทึก `saveVehicle`), `GET/POST /api/vehicles`
