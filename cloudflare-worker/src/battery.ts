@@ -183,11 +183,13 @@ function stationName(note: string): string {
   return name || "-";
 }
 
-/** ทริปที่ใช้คำนวณความจุได้: มีระยะทาง อัตรากินไฟสมเหตุสมผล และ SOC ต้น/ปลายครบ */
-// ทริปที่พลังงานต่อ % แบตเกินความจุสเปกเท่านี้ ถือว่ามีการชาร์จระหว่างทางที่ไม่ได้แยกทริป (เช่น 27 ต.ค. 2026:
-// 325 km ใช้ 47.5 kWh แต่แบตลดแค่ 28% = 170 kWh ต่อ 100%) จึงไม่นำไปคิดความจุ
+// พลังงานต่อ % แบตที่ลดลงต้องอยู่ในช่วงนี้ (เท่าของความจุสเปก) ไม่งั้นถือว่า % แบตต้น/ปลายผิด:
+// - มากเกิน: มีการชาร์จระหว่างทางที่ไม่ได้แยกทริป (27 ต.ค. 2026: 325 km ใช้ 47.5 kWh แต่แบตลดแค่ 28% = 170 kWh ต่อ 100%)
+// - น้อยเกิน: % แบตพิมพ์ผิด (เช่น 29 km ใช้ 3.9 kWh แต่แบตลด 44% = 9 kWh ต่อ 100%)
 const MAX_IMPLIED_CAPACITY_RATIO = 1.5;
+const MIN_IMPLIED_CAPACITY_RATIO = 0.5;
 
+/** ทริปที่ใช้คำนวณความจุได้: มีระยะทาง อัตรากินไฟสมเหตุสมผล และ SOC ต้น/ปลายครบและสอดคล้องกับพลังงาน */
 function isCapacityTrip(r: DashboardRow, nominalKwh: number): boolean {
   if (r.kind !== "trip" || !(r.km > 0) || r.km >= 600) return false;
   const whKm = consKwhPerKm(r.cons) * 1000;
@@ -195,9 +197,10 @@ function isCapacityTrip(r: DashboardRow, nominalKwh: number): boolean {
   if (!(r.s0 > 0 && r.s1 > 0 && r.s0 <= 100 && r.s0 >= r.s1)) return false;
   const dropPct = r.s0 - r.s1;
   if (dropPct > 0 && nominalKwh > 0) {
-    // เผื่อ % แบตที่ปัดเศษ 1% เพื่อไม่ตัดทริปสั้นที่ตัวเลขเพี้ยนเพราะการปัด (จะทำให้ค่าประเมินเอียง)
-    const impliedKwh = (r.km * consKwhPerKm(r.cons)) / ((dropPct + 1) / 100);
-    if (impliedKwh > nominalKwh * MAX_IMPLIED_CAPACITY_RATIO) return false;
+    // เผื่อ % แบตที่ปัดเศษ 1% ทั้งสองทาง เพื่อไม่ตัดทริปสั้นที่ตัวเลขเพี้ยนเพราะการปัด (จะทำให้ค่าประเมินเอียง)
+    const energyKwh = r.km * consKwhPerKm(r.cons);
+    if (energyKwh / ((dropPct + 1) / 100) > nominalKwh * MAX_IMPLIED_CAPACITY_RATIO) return false;
+    if (dropPct > 1 && energyKwh / ((dropPct - 1) / 100) < nominalKwh * MIN_IMPLIED_CAPACITY_RATIO) return false;
   }
   return true;
 }
