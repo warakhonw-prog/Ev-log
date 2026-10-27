@@ -60,7 +60,7 @@ const MONTH_PATTERNS: RegExp[] = [
 
 const CHARGE_WORDS = /ชาร์จ|ชาร์ท|ชาจ|ค่าไฟ|kwh|charg/i;
 const TRIP_WORDS = /เดินทาง|ทริป|trip|วิ่ง|ขับ|ระยะทาง/i;
-const AMOUNT_WORDS = /เท่า(?:ไร|ไหร่|ไร่|ใด)|กี่|สรุป|ยอด|รวม|ทั้งหมด|ใช้ไป|จ่าย|เสีย|how much|total|summary/i;
+const AMOUNT_WORDS = /ค่า(?:เดินทาง|ชาร์จ|ไฟ)|เท่า(?:ไร|ไหร่|ไร่|ใด)|กี่|สรุป|ยอด|รวม|ทั้งหมด|ใช้ไป|จ่าย|เสีย|how much|total|summary/i;
 // คำถามที่ต้องให้ AI คิด/ค้นเว็บ ไม่ใช่แค่ยอดรวม
 const COMPLEX_WORDS = /ไหน|ที่สุด|สูงสุด|ต่ำสุด|มากสุด|น้อยสุด|ทำไม|เพราะ|ยังไง|อย่างไร|เทียบ|เปรียบ|แนะนำ|ควร|ft|หน่วยละ|งวด|คาดการณ์|ทำนาย|ต่อวัน|ต่อเดือน|ต่อครั้ง|ต่อทริป/i;
 
@@ -80,6 +80,58 @@ function rangeText(from: string, to: string): string {
   if (from === to) return formatThaiDate(from);
   const sameYear = from.slice(0, 4) === to.slice(0, 4);
   return `${formatThaiDate(from, !sameYear)} - ${formatThaiDate(to)}`;
+}
+
+// ชื่อเดือนแบบเป็นคำเดี่ยว (ใช้กับวันที่ เช่น "23 ต.ค.") แปลงเป็นเลขเดือนด้วย MONTH_PATTERNS
+const MONTH_TOKEN =
+  /(?:มกรา(?:คม)?|กุมภา(?:พันธ์)?|มีนา(?:คม)?|เมษา(?:ยน)?|พฤษภา(?:คม)?|มิถุนา(?:ยน)?|กรก[ฎฏ]า(?:คม)?|สิงหา(?:คม)?|กันยา(?:ยน)?|ตุลา(?:คม)?|พฤศจิกา(?:ยน)?|ธันวา(?:คม)?|มี\.ค\.?|ม\.ค\.?|ก\.พ\.?|เม\.ย\.?|พ\.ค\.?|มิ\.ย\.?|ก\.ค\.?|ส\.ค\.?|ก\.ย\.?|ต\.ค\.?|พ\.ย\.?|ธ\.ค\.?|มีค|มค|กพ|เมย|พค|มิย|กค|สค|กย|ตค|พย|ธค|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/
+    .source;
+const DAY = "(?<!\\d)(\\d{1,2})(?!\\d)";
+const YEAR = "(25\\d\\d|20\\d\\d)";
+// "23 ต.ค. - 27 ต.ค.", "23-27 ต.ค.", "23ต.ค.-27ต.ค. 2569", "1 ถึง 15 ต.ค."
+const DATE_RANGE = new RegExp(
+  `${DAY}\\s*(?:(${MONTH_TOKEN})\\s*(?:${YEAR})?)?\\s*(?:-|–|~|ถึง)\\s*(?:วันที่\\s*)?${DAY}\\s*(${MONTH_TOKEN})\\s*(?:${YEAR})?`,
+  "i"
+);
+// "23 ต.ค.", "วันที่ 5 พ.ย. 2569"
+const SINGLE_DATE = new RegExp(`${DAY}\\s*(${MONTH_TOKEN})\\s*(?:${YEAR})?`, "i");
+
+const monthOfToken = (token: string) => MONTH_PATTERNS.findIndex((re) => re.test(token));
+const ceYear = (s: string) => {
+  const n = parseInt(s, 10);
+  return n >= 2500 ? n - 543 : n;
+};
+
+/** ช่วงวันที่ที่ระบุเอง คืน null ถ้าไม่มี หรือวันที่ไม่ถูกต้อง */
+function parseDateRange(q: string, y: number, m: number): Pick<StatQuery, "from" | "to" | "label"> | null {
+  let d1: number, m1: number, y1: string | undefined, d2: number, m2: number, y2: string | undefined;
+  const r = q.match(DATE_RANGE);
+  if (r) {
+    d1 = parseInt(r[1], 10);
+    d2 = parseInt(r[4], 10);
+    m2 = monthOfToken(r[5]);
+    m1 = r[2] ? monthOfToken(r[2]) : m2;
+    y1 = r[3];
+    y2 = r[6];
+  } else {
+    const s = q.match(SINGLE_DATE);
+    if (!s) return null;
+    d1 = d2 = parseInt(s[1], 10);
+    m1 = m2 = monthOfToken(s[2]);
+    y1 = y2 = s[3];
+  }
+  if (m1 < 0 || m2 < 0) return null;
+
+  // ไม่ระบุปีและเดือนยังมาไม่ถึง = ปีที่แล้ว · ช่วงข้ามปี (เช่น 28 ธ.ค. - 3 ม.ค.) เดือนแรกเป็นปีก่อนหน้า
+  const endYear = y2 ? ceYear(y2) : y1 ? ceYear(y1) : m2 > m ? y - 1 : y;
+  const startYear = y1 ? ceYear(y1) : m1 > m2 ? endYear - 1 : endYear;
+  const valid = (yy: number, mm: number, dd: number) => dd >= 1 && dd <= new Date(Date.UTC(yy, mm + 1, 0)).getUTCDate();
+  if (!valid(startYear, m1, d1) || !valid(endYear, m2, d2)) return null;
+
+  const from = `${startYear}-${pad(m1 + 1)}-${pad(d1)}`;
+  const to = `${endYear}-${pad(m2 + 1)}-${pad(d2)}`;
+  if (from > to) return null;
+  return { from, to, label: from === to ? "วันที่" : "ช่วงวันที่" };
 }
 
 /** แยกคำถามยอดค่าชาร์จ/ค่าเดินทาง คืน null ถ้าไม่ใช่คำถามแบบนี้ (ให้ AI ตอบแทน) */
@@ -104,10 +156,12 @@ export function parseStatQuery(question: string, now: Date = new Date()): StatQu
   const y = today.getUTCFullYear();
   const m = today.getUTCMonth();
 
-  let period: Pick<StatQuery, "from" | "to" | "label"> | null = null;
+  let period: Pick<StatQuery, "from" | "to" | "label"> | null = parseDateRange(q, y, m);
 
   const monthIdx = MONTH_PATTERNS.findIndex((re) => re.test(q));
-  if (monthIdx >= 0) {
+  if (period) {
+    // ช่วงวันที่ที่ระบุเอง (ตรวจก่อนชื่อเดือนอย่างเดียว)
+  } else if (monthIdx >= 0) {
     const yearMatch = q.match(/(25\d\d|20\d\d)/);
     let year = yearMatch ? parseInt(yearMatch[1], 10) : y;
     if (year >= 2500) year -= 543; // พ.ศ. → ค.ศ.
