@@ -14,6 +14,7 @@ import {
   showLineLoading,
 } from "./line";
 import { askEvAssistant, isLineUserAllowed, formatAnswerForLine, AskTurn } from "./assistant";
+import { parseStatQuery, buildStatFlexMessage } from "./statCards";
 import { verifyAdminLogin, setAdminPassword, deleteAdmin, readAdmins, summarize, normalizeUsername } from "./admins";
 import { generatePeriodSummary } from "./reports";
 import { analyzeEVImageWithGemini } from "./gemini";
@@ -788,7 +789,14 @@ async function handleTextEvent(event: any, env: Env): Promise<void> {
 
   const helpWords = ["help", "?", "วิธีใช้", "ช่วยเหลือ", "เมนู", "menu", "สวัสดี", "hi", "hello"];
   if (text && !helpWords.includes(text)) {
-    await replyLineMessage(replyToken, [{ type: "text", text: await answerLineQuestion(event, env) }], env.LINE_CHANNEL_ACCESS_TOKEN);
+    const messages = await answerLineQuestion(event, env);
+    try {
+      await replyLineMessage(replyToken, messages, env.LINE_CHANNEL_ACCESS_TOKEN);
+    } catch (err) {
+      // Flex ผิดรูปแบบ → ส่งข้อความธรรมดาแทน (replyToken ยังใช้ได้เพราะครั้งแรกถูกปฏิเสธ)
+      if (messages[0]?.type !== "flex") throw err;
+      await replyLineMessage(replyToken, [{ type: "text", text: messages[0].altText }], env.LINE_CHANNEL_ACCESS_TOKEN);
+    }
     return;
   }
 
@@ -920,8 +928,17 @@ async function tagLatestRecordPurpose(event: any, purpose: "business" | "persona
   }
 }
 
-/** ตอบคำถามจาก LINE: เฉพาะบัญชีที่อนุญาตเท่านั้น (ข้อมูลการเดินทางเป็นข้อมูลส่วนตัว) */
-async function answerLineQuestion(event: any, env: Env): Promise<string> {
+/**
+ * ตอบคำถามจาก LINE: เฉพาะบัญชีที่อนุญาตเท่านั้น (ข้อมูลการเดินทางเป็นข้อมูลส่วนตัว)
+ * คำถามยอดค่าชาร์จ/ค่าเดินทาง ตอบเป็นการ์ด Flex ที่คำนวณจากชีตโดยตรง นอกนั้นส่งให้ผู้ช่วย AI
+ */
+async function answerLineQuestion(event: any, env: Env): Promise<any[]> {
+  const text = (msg: string) => [{ type: "text", text: msg }];
+  const reply = await answerLineQuestionText(event, env);
+  return typeof reply === "string" ? text(reply) : reply;
+}
+
+async function answerLineQuestionText(event: any, env: Env): Promise<string | any[]> {
   const userId: string | undefined = event.source?.userId;
   if (event.source?.type && event.source.type !== "user") {
     return "💬 ถามข้อมูลได้เฉพาะในแชทส่วนตัวกับบอทเท่านั้น";
@@ -937,7 +954,10 @@ async function answerLineQuestion(event: any, env: Env): Promise<string> {
     await showLineLoading(userId, env.LINE_CHANNEL_ACCESS_TOKEN);
     const payload = await fetchDashboardDataFromSheets(env);
     if (!payload.ok) throw new Error(payload.error || "ดึงข้อมูลชีตไม่สำเร็จ");
-    const result = await askEvAssistant((event.message?.text || "").toString(), payload, env, { channel: "line" });
+    const question = (event.message?.text || "").toString();
+    const statQuery = parseStatQuery(question);
+    if (statQuery) return [buildStatFlexMessage(payload.data?.rows || [], statQuery)];
+    const result = await askEvAssistant(question, payload, env, { channel: "line" });
     return formatAnswerForLine(result);
   } catch (err: any) {
     console.error("answerLineQuestion error:", err);
